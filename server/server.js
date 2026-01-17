@@ -7,9 +7,12 @@ const  app = express();
 app.use(cors());
 app.use(express.json())
 
-mongoose.connect('mongodb://localhost:27017/Mycro');
+mongoose.connect('mongodb+srv://adunakass:yoyang20@cluster0.bllodvs.mongodb.net/')
+.then(() => console.log('MongoDB Connected'))
+.catch(err => console.error(err));
 
-app.use('/api', userRoutes)
+
+app.use('/api/register', userRoutes)
 
 
 app.listen(8000, () => {

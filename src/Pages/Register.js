@@ -34,6 +34,11 @@ function Register() {
             return;
         }
 
+        if (username.length < 8) {
+            alert('Username must be at least 8 characters long');
+            return;
+        }
+
         if (password.length < 8) {
             alert('Password must be at least 8 characters long');
             return;
@@ -59,7 +64,6 @@ function Register() {
             password
         };
 
-        // POST to the server endpoint that actually exists
         axios.post('http://localhost:8000/api/addMed', medData)
             .then(() => {
                 setNewMed({
@@ -79,7 +83,6 @@ function Register() {
     };
 
     const handleBackToLogin = () => {
-        // app routes use '/' for Login
         navigate('/Login');
     };
 
@@ -149,7 +152,6 @@ function Register() {
                     REGISTER
                 </button>
 
-                {/* 👉 ALREADY HAVE ACCOUNT */}
                 <button
                     type="button"
                     className="registerTextBtn"
