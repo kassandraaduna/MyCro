@@ -8,7 +8,7 @@
 .splashBody {
     width: 100%;
     height: 100vh;
-    background: #007bff;
+    background: linear-gradient(120deg, #fff6fb, #ffe3f1);
     display: flex;
     align-items: center;
     justify-content: center;

@@ -1,76 +1,118 @@
-
 * {
-    margin: 0;
-    padding: 0;
-    box-sizing: border-box;
-    font-family: Arial, Helvetica, sans-serif;
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  font-family: Arial, Helvetica, sans-serif;
 }
 
 .theBody {
-    width: 100%;
-    height: 100vh;
-    background: #f2f4f8;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+  width: 100%;
+  height: 100vh;
+  background: linear-gradient(120deg, #fff6fb, #ffe3f1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .regMainCont {
-    width: 100%;
-    max-width: 420px;
-    background: #ffffff;
-    padding: 30px 25px;
-    border-radius: 10px;
-    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
-    text-align: center;
+  width: 100%;
+  max-width: 420px;
+  background: rgba(255, 255, 255, 0.85);
+  padding: 30px 26px;
+  border-radius: 18px;
+  box-shadow: 0 18px 40px rgba(255, 105, 180, 0.18);
+  text-align: center;
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 105, 180, 0.18);
 }
 
 .logHead {
-    margin-bottom: 20px;
-    font-size: 24px;
-    font-weight: bold;
-    color: #333;
+  margin-bottom: 22px;
+  font-size: 26px;
+  font-weight: 800;
+  color: #ff5da2;
+  letter-spacing: 1px;
 }
 
 .loginInputs {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-    margin-bottom: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 22px;
 }
 
-.loginInputs input {
-    width: 100%;
-    padding: 10px 12px;
-    border: 1px solid #ccc;
-    border-radius: 6px;
-    font-size: 14px;
+.loginInputs input,
+.loginInputs select {
+  width: 100%;
+  padding: 12px 14px;
+  border: 1px solid rgba(255, 105, 180, 0.35);
+  border-radius: 12px;
+  font-size: 14px;
+  background: rgba(255, 255, 255, 0.9);
+  transition: border 0.2s ease, box-shadow 0.2s ease;
 }
 
-.loginInputs input:focus {
-    outline: none;
-    border-color: #007bff;
+.loginInputs input::placeholder {
+  color: #b58aa1;
+}
+
+.loginInputs input:focus,
+.loginInputs select:focus {
+  outline: none;
+  border-color: #ff5da2;
+  box-shadow: 0 0 0 3px rgba(255, 93, 162, 0.15);
+}
+
+.loginInputs select {
+  cursor: pointer;
+  color: #444;
 }
 
 .logBtn {
-    width: 100%;
-    padding: 10px;
-    background: #007bff;
-    border: none;
-    border-radius: 6px;
-    color: #fff;
-    font-size: 15px;
-    font-weight: bold;
-    cursor: pointer;
-    transition: 0.3s;
+  width: 100%;
+  padding: 12px;
+  background: linear-gradient(135deg, #ff5da2, #ff9acb);
+  border: none;
+  border-radius: 14px;
+  color: #fff;
+  font-size: 15px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  box-shadow: 0 10px 25px rgba(255, 93, 162, 0.35);
 }
 
 .logBtn:hover {
-    background: #0056b3;
+  transform: translateY(-1px);
+  box-shadow: 0 14px 30px rgba(255, 93, 162, 0.45);
+}
+
+.logBtn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.registerTextBtn {
+  margin-top: 14px;
+  background: none;
+  border: none;
+  color: #ff5da2;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.registerTextBtn:hover {
+  text-decoration: underline;
 }
 
 @media (max-width: 450px) {
-    .regMainCont {
-        padding: 25px 20px;
-    }
+  .regMainCont {
+    padding: 26px 20px;
+    border-radius: 16px;
+  }
+
+  .logHead {
+    font-size: 24px;
+  }
 }

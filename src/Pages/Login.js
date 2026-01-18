@@ -1,118 +1,129 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import axios from 'axios';
-import { useNavigate } from 'react-router-dom'; 
+import { useNavigate } from 'react-router-dom';
 import './Login.css';
 
-
 function Login() {
-    const [med, setMed] = useState([]);
-    const [username, setUsername] = useState('');
-    const [password, setPassword] = useState('');
+  const [usernameOrEmail, setUsernameOrEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
 
-    const navigate = useNavigate();
+  const navigate = useNavigate();
 
-    function fetchUsers() {
-        return axios.get('http://localhost:8000/api/getMed')
-            .then((response) => {
-                setMed(response.data);
-                return response.data;
-            })
-            .catch((error) => {
-                console.log(error);
-                return [];
-            });
+  const handleLogin = async () => {
+    const userInput = usernameOrEmail.trim();
+    const passInput = password; 
+
+    if (!userInput || !passInput) {
+      alert('Please enter your username/email and password.');
+      return;
     }
 
-    useEffect(() => {
-        fetchUsers();
-    }, []);
-
-    async function handleLogin() {
-        const userInput = username.trim();
-        const passInput = password.trim();
-
-        if (userInput === '' || passInput === '') {
-            alert('Please enter both username and password');
-            return;
-        }
-
-        if (userInput === 'admin' && passInput === 'admin') {
-            navigate('/Adminpanel');
-            return;
-        }
-
-        const users = await fetchUsers();
-
-
-        const emp = users.find(e => String(e.username).trim() === userInput);
-
-        if (!emp) {
-            alert('Invalid Credentials');
-            return;
-        }
-
-        if (String(emp.password).trim() !== passInput) {
-            alert('Invalid Credentials');
-            return;
-        }
-
-        setUsername('');
-        setPassword('');
-
-        navigate('/Homepage', {
-            state: { employee: emp }
-        });
+    if (userInput === 'admin' && passInput === 'admin') {
+      setUsernameOrEmail('');
+      setPassword('');
+      navigate('/Adminpanel');
+      return;
     }
 
-    function handleRegister() {
-        navigate('/Register'); 
+    try {
+      setIsLoading(true);
+
+      const res = await axios.post('http://localhost:8000/api/auth/login', {
+        usernameOrEmail: userInput,
+        password: passInput,
+      });
+
+      alert(res.data?.message || 'Login successful');
+
+      const token = res.data?.data?.token;
+      if (token) localStorage.setItem('token', token);
+
+      const user = res.data?.data?.user || null;
+      if (user) {
+        localStorage.setItem('user', JSON.stringify(user));
+      } else {
+        localStorage.removeItem('user');
+      }
+
+      setUsernameOrEmail('');
+      setPassword('');
+
+      navigate('/Homepage', {
+        state: { employee: user },
+      });
+    } catch (error) {
+      console.error('Login error:', error);
+
+      const msg =
+        error?.response?.data?.message ||
+        'Login failed. Please try again.';
+
+      alert(msg);
+    } finally {
+      setIsLoading(false);
     }
+  };
 
-    return (
-        <>
-            <div className="theBody">
-                <div className="loginMainCont">
-                    <h2 className="logHead">LOG-IN</h2>
+  const handleRegister = () => {
+    navigate('/Register');
+  };
 
-                    <div className="loginInputs">
-                        <input 
-                            type="text" 
-                            required 
-                            autoComplete="off" 
-                            placeholder="Username" 
-                            value={username}
-                            onChange={(e) => setUsername(e.target.value)}
-                        />
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter') {
+      handleLogin();
+    }
+  };
 
-                        <input 
-                            type="password" 
-                            required 
-                            autoComplete="off" 
-                            placeholder="Password" 
-                            value={password}
-                            onChange={(e) => setPassword(e.target.value)}
-                        />
-                    </div>
+  return (
+    <div className="theBody">
+      <div className="loginMainCont">
+        <h2 className="logHead">LOG-IN</h2>
 
-                    <button 
-                        type="submit" 
-                        className="logBtn" 
-                        onClick={handleLogin}
-                    >
-                        LOG-IN
-                    </button>
+        <div className="loginInputs">
+          <input
+            type="text"
+            required
+            autoComplete="off"
+            placeholder="Username or Email"
+            value={usernameOrEmail}
+            onChange={(e) => setUsernameOrEmail(e.target.value)}
+            onKeyDown={handleKeyDown}
+            disabled={isLoading}
+          />
 
-                    <button
-                        type="button"
-                        className="registerTextBtn"
-                        onClick={handleRegister}
-                    >
-                        Register
-                    </button>
-                </div>
-            </div>
-        </>
-    );
+          <input
+            type="password"
+            required
+            autoComplete="off"
+            placeholder="Password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            onKeyDown={handleKeyDown}
+            disabled={isLoading}
+          />
+        </div>
+
+        <button
+          type="button"
+          className="logBtn"
+          onClick={handleLogin}
+          disabled={isLoading}
+        >
+          {isLoading ? 'LOGGING IN...' : 'LOG-IN'}
+        </button>
+
+        <button
+          type="button"
+          className="registerTextBtn"
+          onClick={handleRegister}
+          disabled={isLoading}
+        >
+          Haven't registered yet? Register
+        </button>
+      </div>
+    </div>
+  );
 }
 
 export default Login;
