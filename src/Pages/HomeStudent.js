@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import './Home.css';
 
-function HomePage() {
+function HomePageStudent() {
   const [search, setSearch] = useState('');
   const [active, setActive] = useState('Dashboard');
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -144,4 +144,4 @@ function HomePage() {
   );
 }
 
-export default HomePage;
+export default HomePageStudent;

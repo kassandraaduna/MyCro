@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import './Register.css';
@@ -7,9 +7,9 @@ function Register() {
   const [newMed, setNewMed] = useState({
     fname: "",
     lname: "",
-    dob: "",          
-    gender: "",       
-    number: "",       
+    dob: "",
+    gender: "",
+    number: "",
     email: "",
     username: "",
     password: "",
@@ -17,6 +17,14 @@ function Register() {
   });
 
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const [step, setStep] = useState('form'); 
+  const [otp, setOtp] = useState('');
+  const [maskedEmail, setMaskedEmail] = useState('');
+  const [otpMeta, setOtpMeta] = useState({
+    otpId: '',           
+    expiresAt: '',       
+  });
 
   const navigate = useNavigate();
 
@@ -77,8 +85,8 @@ function Register() {
     }
 
     const phoneDigits = trimmedNumber.replace(/[^\d]/g, '');
-    if (phoneDigits.length < 7 || phoneDigits.length > 15) {
-      return 'Please enter a valid phone number (7 to 15 digits).';
+    if (phoneDigits.length < 7 || phoneDigits.length > 11) {
+      return 'Please enter a valid phone number (7 to 11 digits).';
     }
     const phoneRegex = /^\+?[0-9\s-()]+$/;
     if (!phoneRegex.test(trimmedNumber)) {
@@ -110,6 +118,17 @@ function Register() {
     return null;
   };
 
+  const medData = useMemo(() => ({
+    fname: newMed.fname.trim(),
+    lname: newMed.lname.trim(),
+    dob: newMed.dob,
+    gender: newMed.gender.trim(),
+    number: newMed.number.trim(),
+    email: newMed.email.trim(),
+    username: newMed.username.trim(),
+    password: newMed.password
+  }), [newMed]);
+
   const handleCreateMed = async () => {
     const errorMsg = validate();
     if (errorMsg) {
@@ -117,21 +136,53 @@ function Register() {
       return;
     }
 
-    const medData = {
-      fname: newMed.fname.trim(),
-      lname: newMed.lname.trim(),
-      dob: newMed.dob,                 
-      gender: newMed.gender.trim(),    
-      number: newMed.number.trim(),    
-      email: newMed.email.trim(),
-      username: newMed.username.trim(),
-      password: newMed.password
-    };
+    try {
+      setIsSubmitting(true);
+
+      const res = await axios.post('http://localhost:8000/api/auth/request-email-otp', {
+        email: medData.email,
+        purpose: 'register'
+      });
+
+      setOtpMeta({
+        otpId: res.data?.otpId || '',
+        expiresAt: res.data?.expiresAt || ''
+      });
+
+      setMaskedEmail(res.data?.maskedEmail || medData.email);
+      setStep('verify');
+      setOtp('');
+    } catch (error) {
+      console.error("REQUEST OTP ERROR:", error);
+
+      const msg =
+        error?.response?.data?.message ||
+        error?.response?.data?.error ||
+        'Failed to send verification code.';
+      alert(msg);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleVerifyAndRegister = async () => {
+    if (!otp.trim()) {
+      alert('Please enter the verification code.');
+      return;
+    }
+    if (!otpMeta.otpId) {
+      alert('Missing OTP session. Please resend code.');
+      return;
+    }
 
     try {
       setIsSubmitting(true);
 
-      await axios.post('http://localhost:8000/api/addMed', medData);
+      await axios.post('http://localhost:8000/api/auth/verify-email-otp-and-register', {
+        otpId: otpMeta.otpId,
+        code: otp.trim(),
+        medData
+      });
 
       setNewMed({
         fname: "",
@@ -145,24 +196,49 @@ function Register() {
         confirmPassword: ""
       });
 
+      setOtp('');
+      setOtpMeta({ otpId: '', expiresAt: '' });
+      setMaskedEmail('');
+      setStep('form');
+
       alert("Account registered successfully!");
-      navigate('/Login'); 
+      navigate('/Login');
     } catch (error) {
-      console.error("REGISTER ERROR:", error);
+      console.error("VERIFY+REGISTER ERROR:", error);
 
-      if (error.response) {
-        console.log("STATUS:", error.response.status);
-        console.log("DATA:", error.response.data);
+      const msg =
+        error?.response?.data?.message ||
+        error?.response?.data?.error ||
+        'Verification failed. Please try again.';
+      alert(msg);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
-        alert(
-          `Status: ${error.response.status}\n` +
-          `Response: ${JSON.stringify(error.response.data)}`
-        );
-      } else if (error.request) {
-        alert('No response from server. Check if backend is running.');
-      } else {
-        alert(`Error: ${error.message}`);
-      }
+  const handleResend = async () => {
+    try {
+      setIsSubmitting(true);
+
+      const res = await axios.post('http://localhost:8000/api/auth/resend-email-otp', {
+        email: medData.email,
+        purpose: 'register'
+      });
+
+      setOtpMeta({
+        otpId: res.data?.otpId || otpMeta.otpId,
+        expiresAt: res.data?.expiresAt || ''
+      });
+
+      setMaskedEmail(res.data?.maskedEmail || medData.email);
+      alert('Verification code resent!');
+    } catch (error) {
+      console.error("RESEND OTP ERROR:", error);
+      const msg =
+        error?.response?.data?.message ||
+        error?.response?.data?.error ||
+        'Failed to resend code.';
+      alert(msg);
     } finally {
       setIsSubmitting(false);
     }
@@ -172,98 +248,143 @@ function Register() {
     navigate('/Login');
   };
 
+
   return (
     <div className="theBody">
       <div className="regMainCont">
-        <h2 className="logHead">REGISTER</h2>
+        {step === 'form' && (
+          <>
+            <h2 className="logHead">REGISTER</h2>
 
-        <div className="loginInputs">
-          <input
-            type="text"
-            placeholder="First Name"
-            value={newMed.fname}
-            onChange={handleChange('fname')}
-          />
+            <div className="loginInputs">
+              <input
+                type="text"
+                placeholder="First Name"
+                value={newMed.fname}
+                onChange={handleChange('fname')}
+              />
 
-          <input
-            type="text"
-            placeholder="Last Name"
-            value={newMed.lname}
-            onChange={handleChange('lname')}
-          />
+              <input
+                type="text"
+                placeholder="Last Name"
+                value={newMed.lname}
+                onChange={handleChange('lname')}
+              />
 
-          <input
-            type="date"
-            placeholder="Date of Birth"
-            value={newMed.dob}
-            onChange={handleChange('dob')}
-          />
+              <input
+                type="date"
+                placeholder="Date of Birth"
+                value={newMed.dob}
+                onChange={handleChange('dob')}
+              />
 
-          <select
-            value={newMed.gender}
-            onChange={handleChange('gender')}
-            className="regSelect"
-          >
-            <option value="">Select Gender</option>
-            <option value="Male">Male</option>
-            <option value="Female">Female</option>
-            <option value="Other">Other</option>
-            <option value="Prefer not to say">Prefer not to say</option>
-          </select>
+              <select
+                value={newMed.gender}
+                onChange={handleChange('gender')}
+                className="regSelect"
+              >
+                <option value="">Select Gender</option>
+                <option value="Male">Male</option>
+                <option value="Female">Female</option>
+                <option value="Other">Other</option>
+                <option value="Prefer not to say">Prefer not to say</option>
+              </select>
 
-          <input
-            type="tel"
-            placeholder="Phone Number"
-            value={newMed.number}
-            onChange={handleChange('number')}
-          />
+              <input
+                type="tel"
+                placeholder="Phone Number"
+                value={newMed.number}
+                onChange={handleChange('number')}
+              />
 
-          <input
-            type="email"
-            placeholder="Email"
-            value={newMed.email}
-            onChange={handleChange('email')}
-          />
+              <input
+                type="email"
+                placeholder="Email"
+                value={newMed.email}
+                onChange={handleChange('email')}
+              />
 
-          <input
-            type="text"
-            placeholder="Username"
-            value={newMed.username}
-            onChange={handleChange('username')}
-          />
+              <input
+                type="text"
+                placeholder="Username"
+                value={newMed.username}
+                onChange={handleChange('username')}
+              />
 
-          <input
-            type="password"
-            placeholder="Password"
-            value={newMed.password}
-            onChange={handleChange('password')}
-          />
+              <input
+                type="password"
+                placeholder="Password"
+                value={newMed.password}
+                onChange={handleChange('password')}
+              />
 
-          <input
-            type="password"
-            placeholder="Confirm Password"
-            value={newMed.confirmPassword}
-            onChange={handleChange('confirmPassword')}
-          />
-        </div>
+              <input
+                type="password"
+                placeholder="Confirm Password"
+                value={newMed.confirmPassword}
+                onChange={handleChange('confirmPassword')}
+              />
+            </div>
 
-        <button
-          type="button"
-          className="logBtn"
-          onClick={handleCreateMed}
-          disabled={isSubmitting}
-        >
-          {isSubmitting ? 'REGISTERING...' : 'REGISTER'}
-        </button>
+            <button
+              type="button"
+              className="logBtn"
+              onClick={handleCreateMed}
+              disabled={isSubmitting}
+            >
+              {isSubmitting ? 'SENDING CODE...' : 'REGISTER'}
+            </button>
 
-        <button
-          type="button"
-          className="registerTextBtn"
-          onClick={handleBackToLogin}
-          disabled={isSubmitting}
-        >
-          Already have an account? Login here.
-        </button>
+            <button
+              type="button"
+              className="registerTextBtn"
+              onClick={handleBackToLogin}
+              disabled={isSubmitting}
+            >
+              Already have an account? Login here.
+            </button>
+          </>
+        )}
+
+        {step === 'verify' && (
+          <>
+            <h2 className="logHead">Verify your email</h2>
+
+            <p style={{ marginTop: 6, fontSize: 13, color: '#9c4b6f' }}>
+              The verification code has been sent to your email <b>{maskedEmail}</b>
+            </p>
+
+            <div className="loginInputs" style={{ marginTop: 14 }}>
+              <input
+                type="text"
+                placeholder="Enter verification code"
+                value={otp}
+                onChange={(e) => setOtp(e.target.value)}
+                inputMode="numeric"
+              />
+            </div>
+
+            <button
+              type="button"
+              className="logBtn"
+              onClick={handleVerifyAndRegister}
+              disabled={isSubmitting}
+            >
+              {isSubmitting ? 'VERIFYING...' : 'Continue'}
+            </button>
+
+            <button
+              type="button"
+              className="registerTextBtn"
+              onClick={handleResend}
+              disabled={isSubmitting}
+              style={{ marginTop: 10 }}
+            >
+              Resend code
+            </button>
+
+          </>
+        )}
       </div>
     </div>
   );

@@ -7,16 +7,17 @@
 
 .theBody {
   width: 100%;
-  height: 100vh;
+  min-height: 100vh;
   background: linear-gradient(120deg, #fff6fb, #ffe3f1);
   display: flex;
   align-items: center;
   justify-content: center;
+  padding: 18px;
 }
 
 .loginMainCont {
   width: 100%;
-  max-width: 360px;
+  max-width: 380px;
   background: rgba(255, 255, 255, 0.85);
   padding: 30px 26px;
   border-radius: 18px;
@@ -27,18 +28,19 @@
 }
 
 .logHead {
-  margin-bottom: 22px;
+  margin-bottom: 18px;
   font-size: 26px;
   font-weight: 800;
   color: #ff5da2;
   letter-spacing: 1px;
+  line-height: 1.1;
 }
 
 .loginInputs {
   display: flex;
   flex-direction: column;
   gap: 12px;
-  margin-bottom: 22px;
+  margin-bottom: 18px;
 }
 
 .loginInputs input {
@@ -48,7 +50,7 @@
   border-radius: 12px;
   font-size: 14px;
   background: rgba(255, 255, 255, 0.9);
-  transition: border 0.2s ease, box-shadow 0.2s ease;
+  transition: border 0.2s ease, box-shadow 0.2s ease, transform 0.05s ease;
 }
 
 .loginInputs input::placeholder {
@@ -61,6 +63,11 @@
   box-shadow: 0 0 0 3px rgba(255, 93, 162, 0.15);
 }
 
+.loginInputs input:disabled {
+  opacity: 0.8;
+  cursor: not-allowed;
+}
+
 .logBtn {
   width: 100%;
   padding: 12px;
@@ -71,7 +78,7 @@
   font-size: 15px;
   font-weight: 800;
   cursor: pointer;
-  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease;
   box-shadow: 0 10px 25px rgba(255, 93, 162, 0.35);
 }
 
@@ -80,23 +87,37 @@
   box-shadow: 0 14px 30px rgba(255, 93, 162, 0.45);
 }
 
+.logBtn:active {
+  transform: translateY(0px);
+}
+
 .logBtn:disabled {
   opacity: 0.7;
   cursor: not-allowed;
+  transform: none;
+  box-shadow: 0 10px 25px rgba(255, 93, 162, 0.22);
 }
 
 .registerTextBtn {
-  margin-top: 14px;
+  margin-top: 12px;
   background: none;
   border: none;
   color: #ff5da2;
   font-size: 14px;
   font-weight: 700;
   cursor: pointer;
+  line-height: 1.2;
+  padding: 6px 2px;
 }
 
 .registerTextBtn:hover {
   text-decoration: underline;
+}
+
+.registerTextBtn:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+  text-decoration: none;
 }
 
 @media (max-width: 400px) {

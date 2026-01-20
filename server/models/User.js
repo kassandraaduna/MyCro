@@ -16,8 +16,9 @@ const UserSchema = new mongoose.Schema(
     password: { type: String, required: true },
     email: { type: String, required: true, unique: true, trim: true, lowercase: true },
     active: { type: Boolean, default: true },
-    role: { type: String, default: 'user' }, 
-    
+    role: { type: String, default: 'user' },
+
+    mfaLastVerifiedAt: { type: Date, default: null },
   },
   { timestamps: true }
 );
