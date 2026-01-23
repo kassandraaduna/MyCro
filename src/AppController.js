@@ -3,8 +3,8 @@ import Login from './Pages/Login.js';
 import HomeStudent from './Pages/HomeStudent.js';
 import Register from './Pages/Register.js';
 import SplashScreen from './Pages/SplashScreen.js';
-import Account from './Pages/Account.js';
 import Admin from './AdminPages/Admin.js';
+import LandingPage from './Pages/LandingPage';
 
 
 
@@ -17,7 +17,7 @@ const AppController = () => {
         <Route path="/Login" element={<Login />} />
         <Route path="/Register" element={<Register />} />
         <Route path="/Homepage" element={<HomeStudent />} />
-        <Route path="/AccountSettings" element={<Account />} />
+        <Route path="/Landing" element={<LandingPage />} />
         <Route path="/AdminPanel" element={<Admin />} />
 
         

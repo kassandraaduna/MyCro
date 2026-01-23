@@ -1,6 +1,6 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import axios from 'axios';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import './Register.css';
 
 function Register() {
@@ -18,15 +18,29 @@ function Register() {
 
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const [step, setStep] = useState('form'); 
+  const [step, setStep] = useState('form');
   const [otp, setOtp] = useState('');
   const [maskedEmail, setMaskedEmail] = useState('');
   const [otpMeta, setOtpMeta] = useState({
-    otpId: '',           
-    expiresAt: '',       
+    otpId: '',
+    expiresAt: '',
   });
 
+  const [showDisclaimer, setShowDisclaimer] = useState(false);
+  const [agree, setAgree] = useState(false);
+  const [disclaimerAccepted, setDisclaimerAccepted] = useState(false);
+
   const navigate = useNavigate();
+  const location = useLocation();
+
+  useEffect(() => {
+    if (location?.state?.showDisclaimer) {
+      setShowDisclaimer(true);
+      setAgree(false);
+      setDisclaimerAccepted(false);
+      navigate('/Register', { replace: true, state: {} });
+    }
+  }, [location, navigate]);
 
   const handleChange = (field) => (e) => {
     setNewMed((prev) => ({
@@ -130,6 +144,12 @@ function Register() {
   }), [newMed]);
 
   const handleCreateMed = async () => {
+    if (!disclaimerAccepted) {
+      setShowDisclaimer(true);
+      setAgree(false);
+      return;
+    }
+
     const errorMsg = validate();
     if (errorMsg) {
       alert(errorMsg);
@@ -163,6 +183,12 @@ function Register() {
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const handleContinueDisclaimer = () => {
+    if (!agree) return;
+    setDisclaimerAccepted(true);
+    setShowDisclaimer(false);
   };
 
   const handleVerifyAndRegister = async () => {
@@ -200,6 +226,9 @@ function Register() {
       setOtpMeta({ otpId: '', expiresAt: '' });
       setMaskedEmail('');
       setStep('form');
+
+      setDisclaimerAccepted(false);
+      setAgree(false);
 
       alert("Account registered successfully!");
       navigate('/Login');
@@ -248,13 +277,12 @@ function Register() {
     navigate('/Login');
   };
 
-
   return (
     <div className="theBody">
       <div className="regMainCont">
         {step === 'form' && (
           <>
-            <h2 className="logHead">REGISTER</h2>
+            <h2 className="logHead">SIGN UP</h2>
 
             <div className="loginInputs">
               <input
@@ -286,7 +314,6 @@ function Register() {
                 <option value="">Select Gender</option>
                 <option value="Male">Male</option>
                 <option value="Female">Female</option>
-                <option value="Other">Other</option>
                 <option value="Prefer not to say">Prefer not to say</option>
               </select>
 
@@ -332,7 +359,7 @@ function Register() {
               onClick={handleCreateMed}
               disabled={isSubmitting}
             >
-              {isSubmitting ? 'SENDING CODE...' : 'REGISTER'}
+              {isSubmitting ? 'SENDING CODE...' : 'SIGN-UP'}
             </button>
 
             <button
@@ -341,8 +368,81 @@ function Register() {
               onClick={handleBackToLogin}
               disabled={isSubmitting}
             >
-              Already have an account? Login here.
+              Already have an account? Sign-in here.
             </button>
+
+            {showDisclaimer && (
+              <div
+                style={{
+                  position: 'fixed',
+                  inset: 0,
+                  background: 'rgba(0,0,0,0.35)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  padding: 18,
+                  zIndex: 9999,
+                }}
+                onClick={() => {
+                  if (!isSubmitting) setShowDisclaimer(false);
+                }}
+              >
+                <div
+                  style={{
+                    width: '100%',
+                    maxWidth: 360,
+                    background: '#fff',
+                    borderRadius: 14,
+                    padding: '22px 18px',
+                    border: '1px solid rgba(0,0,0,0.12)',
+                    boxShadow: '0 18px 45px rgba(0,0,0,0.18)',
+                    textAlign: 'center',
+                  }}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <div style={{ fontWeight: 900, letterSpacing: 0.8, marginBottom: 14 }}>
+                    DISCLAIMER
+                  </div>
+
+                  <div style={{ fontSize: 12, lineHeight: 1.35, fontWeight: 700, padding: '0 10px' }}>
+                    THIS APPLICATION IS INTENDED TO BE AN AI FOR LEARNING ONLY AND IS NOT DESIGNED
+                    FOR CLINICAL DIAGNOSIS OR MEDICAL DECISION-MAKING NOR INTENDED TO REPLACE
+                    TRADITIONAL CLASSROOM AND LABORATORY LEARNING PRACTICES.
+                  </div>
+
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, marginTop: 16 }}>
+                    <input
+                      type="checkbox"
+                      checked={agree}
+                      onChange={(e) => setAgree(e.target.checked)}
+                      disabled={isSubmitting}
+                      style={{ width: 18, height: 18 }}
+                    />
+                    <div style={{ fontSize: 12, fontWeight: 800 }}>
+                      I UNDERSTAND AND AGREE
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={handleContinueDisclaimer}
+                    disabled={!agree || isSubmitting}
+                    style={{
+                      marginTop: 16,
+                      width: '100%',
+                      padding: '10px 12px',
+                      borderRadius: 12,
+                      border: '1px solid rgba(0,0,0,0.2)',
+                      background: '#fff',
+                      fontWeight: 900,
+                      cursor: !agree || isSubmitting ? 'not-allowed' : 'pointer',
+                    }}
+                  >
+                    CONTINUE
+                  </button>
+                </div>
+              </div>
+            )}
           </>
         )}
 
@@ -382,7 +482,6 @@ function Register() {
             >
               Resend code
             </button>
-
           </>
         )}
       </div>

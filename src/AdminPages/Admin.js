@@ -5,7 +5,7 @@ import './Admin.css';
 
 function Admin() {
   const [search, setSearch] = useState('');
-  const [active, setActive] = useState('Manage Accounts');
+  const [active, setActive] = useState('Dashboard');
   const navigate = useNavigate();
 
   const [users, setUsers] = useState([]);
@@ -21,9 +21,10 @@ function Admin() {
     number: '',
   });
 
-  const [activityType, setActivityType] = useState('All Activities'); 
+  const [activityType, setActivityType] = useState('All Activities');
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');
+
   const actorPayload = useMemo(() => {
     let admin = null;
     try {
@@ -268,296 +269,350 @@ function Admin() {
     }
   };
 
+  const renderDashboard = () => (
+    <div className="adminCard">
+      <div className="adminCardHead">
+        <div className="adminTitle">Dashboard</div>
+        <div className="adminSub">Content placeholder</div>
+      </div>
+    </div>
+  );
+
+  const renderInstitution = () => (
+    <div className="adminCard">
+      <div className="adminCardHead">
+        <div className="adminTitle">Institution Management</div>
+        <div className="adminSub">Content placeholder</div>
+      </div>
+    </div>
+  );
+
+  const renderDataset = () => (
+    <div className="adminCard">
+      <div className="adminCardHead">
+        <div className="adminTitle">Dataset Management</div>
+        <div className="adminSub">Content placeholder</div>
+      </div>
+    </div>
+  );
+
+  const renderAccountManagement = () => (
+    <>
+      <div className="adminTop">
+        <div>
+          <div className="adminTitle">Account Management</div>
+          <div className="adminSub">Activate / Deactivate / Update / Delete accounts</div>
+        </div>
+      </div>
+
+      {loadingUsers ? (
+        <p>Loading users...</p>
+      ) : (
+        <div style={{ overflowX: 'auto', marginTop: 12 }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <thead>
+              <tr>
+                <th style={th}>Name</th>
+                <th style={th}>Email</th>
+                <th style={th}>Number</th>
+                <th style={th}>Status</th>
+                <th style={th}>Actions</th>
+              </tr>
+            </thead>
+
+            <tbody>
+              {filteredUsers.map((u) => (
+                <tr key={u._id}>
+                  <td style={td}>
+                    {editingId === u._id ? (
+                      <div style={{ display: 'flex', gap: 8 }}>
+                        <input
+                          value={editDraft.fname}
+                          onChange={(e) => setEditDraft((p) => ({ ...p, fname: e.target.value }))}
+                          placeholder="First"
+                          style={miniInput}
+                        />
+                        <input
+                          value={editDraft.lname}
+                          onChange={(e) => setEditDraft((p) => ({ ...p, lname: e.target.value }))}
+                          placeholder="Last"
+                          style={miniInput}
+                        />
+                      </div>
+                    ) : (
+                      `${u.fname || ''} ${u.lname || ''}`
+                    )}
+                  </td>
+
+                  <td style={td}>
+                    {editingId === u._id ? (
+                      <input
+                        value={editDraft.email}
+                        onChange={(e) => setEditDraft((p) => ({ ...p, email: e.target.value }))}
+                        placeholder="Email"
+                        style={miniInputFull}
+                      />
+                    ) : (
+                      u.email
+                    )}
+                  </td>
+
+                  <td style={td}>
+                    {editingId === u._id ? (
+                      <input
+                        value={editDraft.number}
+                        onChange={(e) => setEditDraft((p) => ({ ...p, number: e.target.value }))}
+                        placeholder="Number"
+                        style={miniInputFull}
+                      />
+                    ) : (
+                      u.number || '-'
+                    )}
+                  </td>
+
+                  <td style={td}>
+                    <span
+                      style={{
+                        padding: '4px 10px',
+                        borderRadius: 999,
+                        fontWeight: 800,
+                        background: u.active ? 'rgba(0, 200, 100, 0.12)' : 'rgba(255, 0, 80, 0.10)',
+                        border: u.active ? '1px solid rgba(0, 200, 100, 0.25)' : '1px solid rgba(255, 0, 80, 0.22)',
+                      }}
+                    >
+                      {u.active ? 'Active' : 'Inactive'}
+                    </span>
+                  </td>
+
+                  <td style={td}>
+                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                      <button type="button" className="adminMiniBtn" onClick={() => toggleActive(u)}>
+                        {u.active ? 'Deactivate' : 'Activate'}
+                      </button>
+
+                      {editingId === u._id ? (
+                        <>
+                          <button type="button" className="adminMiniBtn" onClick={saveEdit}>
+                            Save
+                          </button>
+                          <button type="button" className="adminMiniBtn" onClick={cancelEdit}>
+                            Cancel
+                          </button>
+                        </>
+                      ) : (
+                        <button type="button" className="adminMiniBtn" onClick={() => startEdit(u)}>
+                          Update
+                        </button>
+                      )}
+
+                      <button type="button" className="adminMiniBtn danger" onClick={() => deleteUser(u)}>
+                        Delete
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+
+              {filteredUsers.length === 0 && (
+                <tr>
+                  <td style={td} colSpan={5}>
+                    No users found.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </>
+  );
+
+  const renderAuditLogs = () => (
+    <>
+      <div className="auditTop">
+        <div>
+          <div className="adminTitle">Audit Logs</div>
+          <div className="adminSub">Track user activities: logins and registrations</div>
+        </div>
+      </div>
+
+      <div className="auditFilters">
+        <div className="auditField">
+          <label>Activity Type</label>
+          <select value={activityType} onChange={(e) => setActivityType(e.target.value)}>
+            <option>All Activities</option>
+            <option>Login</option>
+            <option>Registration</option>
+            <option>Status Change</option>
+            <option>Update</option>
+            <option>Delete</option>
+          </select>
+        </div>
+
+        <div className="auditField">
+          <label>From Date</label>
+          <input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} />
+        </div>
+
+        <div className="auditField">
+          <label>To Date</label>
+          <input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} />
+        </div>
+
+        <button type="button" className="auditClearBtn" onClick={clearFilters}>
+          Clear Filters
+        </button>
+      </div>
+
+      <div className="auditStats">
+        <div className="auditStatCard">
+          <div className="auditStatNum">{totalLogins}</div>
+          <div className="auditStatLabel">Total Logins</div>
+        </div>
+
+        <div className="auditStatCard">
+          <div className="auditStatNum">{totalRegistrations}</div>
+          <div className="auditStatLabel">Registrations</div>
+        </div>
+      </div>
+
+      {loadingLogs ? (
+        <p>Loading logs...</p>
+      ) : (
+        <div style={{ overflowX: 'auto', marginTop: 10 }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <thead>
+              <tr>
+                <th style={th}>Date & Time</th>
+                <th style={th}>Activity</th>
+                <th style={th}>User</th>
+                <th style={th}>Role</th>
+                <th style={th}>Email</th>
+                <th style={th}>Details</th>
+              </tr>
+            </thead>
+
+            <tbody>
+              {filteredLogs.map((l) => {
+                const d = getLogDate(l);
+                const actionLabel = normalizeAction(l);
+
+                return (
+                  <tr key={l._id}>
+                    <td style={td}>{d ? d.toLocaleString() : '-'}</td>
+                    <td style={td}>{actionLabel}</td>
+                    <td style={td}>{getLogUser(l)}</td>
+                    <td style={td}>{getLogRole(l)}</td>
+                    <td style={td}>{getLogEmail(l)}</td>
+                    <td style={td}>{getLogDetails(l)}</td>
+                  </tr>
+                );
+              })}
+
+              {filteredLogs.length === 0 && (
+                <tr>
+                  <td style={td} colSpan={6}>
+                    No logs found.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </>
+  );
+
+  const renderMain = () => {
+    if (active === 'Dashboard') return renderDashboard();
+    if (active === 'Institution Management') return renderInstitution();
+    if (active === 'Dataset Management') return renderDataset();
+    if (active === 'Account Management') return renderAccountManagement();
+    if (active === 'Audit Logs') return renderAuditLogs();
+    return renderDashboard();
+  };
+
   return (
-    <div className="homeBody">
-      <aside className="homeSidebar">
-        <div className="homeLogo">
-          <div className="logoMark">M</div>
-          <div className="logoText">
-            <h2>MyCro</h2>
-            <p>Admin</p>
+    <div className="adWrap">
+      <aside className="adSide">
+        <div className="adSideTop">
+          <div className="adLogo">MyphoLens</div>
+          <div className="adSectionTitle">ADMIN</div>
+
+          <div className="adNav">
+            <button
+              type="button"
+              className={`adNavBtn ${active === 'Dashboard' ? 'active' : ''}`}
+              onClick={() => handleNav('Dashboard')}
+            >
+              <span className="adDot" />
+              Dashboard
+            </button>
+
+            <button
+              type="button"
+              className={`adNavBtn ${active === 'Institution Management' ? 'active' : ''}`}
+              onClick={() => handleNav('Institution Management')}
+            >
+              <span className="adDot" />
+              Institution Management
+            </button>
+
+            <button
+              type="button"
+              className={`adNavBtn ${active === 'Account Management' ? 'active' : ''}`}
+              onClick={() => handleNav('Account Management')}
+            >
+              <span className="adDot" />
+              Account Management
+            </button>
+
+            <button
+              type="button"
+              className={`adNavBtn ${active === 'Dataset Management' ? 'active' : ''}`}
+              onClick={() => handleNav('Dataset Management')}
+            >
+              <span className="adDot" />
+              Dataset Management
+            </button>
+
+            <button
+              type="button"
+              className={`adNavBtn ${active === 'Audit Logs' ? 'active' : ''}`}
+              onClick={() => handleNav('Audit Logs')}
+            >
+              <span className="adDot" />
+              Audit Logs
+            </button>
           </div>
         </div>
 
-        <nav className="sideNav">
-          <button
-            className={`sideBtn ${active === 'Manage Accounts' ? 'active' : ''}`}
-            onClick={() => handleNav('Manage Accounts')}
-            type="button"
-          >
-            Manage Accounts
+        <div className="adSideBottom">
+          <button type="button" className="adLogout" onClick={handleLogout}>
+            LOGOUT
           </button>
-
-          <button
-            className={`sideBtn ${active === 'Audit Logs' ? 'active' : ''}`}
-            onClick={() => handleNav('Audit Logs')}
-            type="button"
-          >
-            Audit Logs
-          </button>
-
-          <button
-            type="button"
-            className="sideBtn"
-            onClick={handleLogout}
-            style={{ marginTop: 12 }}
-          >
-            Logout
-          </button>
-        </nav>
+        </div>
       </aside>
 
-      <section className="homeContent">
-        <header className="homeHeader">
-          <form className="searchForm" onSubmit={handleSearch}>
+      <section className="adMain">
+        <header className="adTopbar">
+          <form className="adSearch" onSubmit={handleSearch}>
             <input
-              type="text"
-              placeholder={active === 'Audit Logs' ? 'Search logs...' : 'Search users...'}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
+              placeholder={
+                active === 'Audit Logs'
+                  ? 'Search logs...'
+                  : active === 'Account Management'
+                    ? 'Search users...'
+                    : 'Search...'
+              }
             />
-            <button type="submit">🔍</button>
+            <button type="submit">⌕</button>
           </form>
         </header>
 
-        <main className="homeMain">
-          <div className="contentCard">
-            {active === 'Manage Accounts' && (
-              <>
-                <h1>Manage Accounts</h1>
-                <p>Activate / Deactivate / Update / Delete accounts</p>
-
-                {loadingUsers ? (
-                  <p>Loading users...</p>
-                ) : (
-                  <div style={{ overflowX: 'auto', marginTop: 12 }}>
-                    <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                      <thead>
-                        <tr>
-                          <th style={th}>Name</th>
-                          <th style={th}>Email</th>
-                          <th style={th}>Number</th>
-                          <th style={th}>Status</th>
-                          <th style={th}>Actions</th>
-                        </tr>
-                      </thead>
-
-                      <tbody>
-                        {filteredUsers.map((u) => (
-                          <tr key={u._id}>
-                            <td style={td}>
-                              {editingId === u._id ? (
-                                <div style={{ display: 'flex', gap: 8 }}>
-                                  <input
-                                    value={editDraft.fname}
-                                    onChange={(e) =>
-                                      setEditDraft((p) => ({ ...p, fname: e.target.value }))
-                                    }
-                                    placeholder="First"
-                                    style={miniInput}
-                                  />
-                                  <input
-                                    value={editDraft.lname}
-                                    onChange={(e) =>
-                                      setEditDraft((p) => ({ ...p, lname: e.target.value }))
-                                    }
-                                    placeholder="Last"
-                                    style={miniInput}
-                                  />
-                                </div>
-                              ) : (
-                                `${u.fname || ''} ${u.lname || ''}`
-                              )}
-                            </td>
-
-                            <td style={td}>
-                              {editingId === u._id ? (
-                                <input
-                                  value={editDraft.email}
-                                  onChange={(e) =>
-                                    setEditDraft((p) => ({ ...p, email: e.target.value }))
-                                  }
-                                  placeholder="Email"
-                                  style={miniInputFull}
-                                />
-                              ) : (
-                                u.email
-                              )}
-                            </td>
-
-                            <td style={td}>
-                              {editingId === u._id ? (
-                                <input
-                                  value={editDraft.number}
-                                  onChange={(e) =>
-                                    setEditDraft((p) => ({ ...p, number: e.target.value }))
-                                  }
-                                  placeholder="Number"
-                                  style={miniInputFull}
-                                />
-                              ) : (
-                                u.number || '-'
-                              )}
-                            </td>
-
-                            <td style={td}>
-                              <span
-                                style={{
-                                  padding: '4px 10px',
-                                  borderRadius: 999,
-                                  fontWeight: 700,
-                                  background: u.active
-                                    ? 'rgba(0, 200, 100, 0.12)'
-                                    : 'rgba(255, 0, 80, 0.10)',
-                                  border: u.active
-                                    ? '1px solid rgba(0, 200, 100, 0.25)'
-                                    : '1px solid rgba(255, 0, 80, 0.22)',
-                                }}
-                              >
-                                {u.active ? 'Active' : 'Inactive'}
-                              </span>
-                            </td>
-
-                            <td style={td}>
-                              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                                <button type="button" onClick={() => toggleActive(u)}>
-                                  {u.active ? 'Deactivate' : 'Activate'}
-                                </button>
-
-                                {editingId === u._id ? (
-                                  <>
-                                    <button type="button" onClick={saveEdit}>
-                                      Save
-                                    </button>
-                                    <button type="button" onClick={cancelEdit}>
-                                      Cancel
-                                    </button>
-                                  </>
-                                ) : (
-                                  <button type="button" onClick={() => startEdit(u)}>
-                                    Update
-                                  </button>
-                                )}
-
-                                <button type="button" onClick={() => deleteUser(u)}>
-                                  Delete
-                                </button>
-                              </div>
-                            </td>
-                          </tr>
-                        ))}
-
-                        {filteredUsers.length === 0 && (
-                          <tr>
-                            <td style={td} colSpan={5}>
-                              No users found.
-                            </td>
-                          </tr>
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </>
-            )}
-
-            {active === 'Audit Logs' && (
-              <>
-                <div className="auditTop">
-                  <div>
-                    <h1 className="auditTitle">Audit Logs</h1>
-                    <p className="auditSub">Track user activities: logins and registrations</p>
-                  </div>
-                </div>
-
-                <div className="auditFilters">
-                  <div className="auditField">
-                    <label>Activity Type</label>
-                    <select value={activityType} onChange={(e) => setActivityType(e.target.value)}>
-                      <option>All Activities</option>
-                      <option>Login</option>
-                      <option>Registration</option>
-                      <option>Status Change</option>
-                      <option>Update</option>
-                      <option>Delete</option>
-                    </select>
-                  </div>
-
-                  <div className="auditField">
-                    <label>From Date</label>
-                    <input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} />
-                  </div>
-
-                  <div className="auditField">
-                    <label>To Date</label>
-                    <input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} />
-                  </div>
-
-                  <button type="button" className="auditClearBtn" onClick={clearFilters}>
-                    Clear Filters
-                  </button>
-                </div>
-
-                <div className="auditStats">
-                  <div className="auditStatCard">
-                    <div className="auditStatNum">{totalLogins}</div>
-                    <div className="auditStatLabel">Total Logins</div>
-                  </div>
-
-                  <div className="auditStatCard">
-                    <div className="auditStatNum">{totalRegistrations}</div>
-                    <div className="auditStatLabel">Registrations</div>
-                  </div>
-                </div>
-
-                {loadingLogs ? (
-                  <p>Loading logs...</p>
-                ) : (
-                  <div style={{ overflowX: 'auto', marginTop: 10 }}>
-                    <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                      <thead>
-                        <tr>
-                          <th style={th}>Date & Time</th>
-                          <th style={th}>Activity</th>
-                          <th style={th}>User</th>
-                          <th style={th}>Role</th>
-                          <th style={th}>Email</th>
-                          <th style={th}>Details</th>
-                        </tr>
-                      </thead>
-
-                      <tbody>
-                        {filteredLogs.map((l) => {
-                          const d = getLogDate(l);
-                          const actionLabel = normalizeAction(l);
-
-                          return (
-                            <tr key={l._id}>
-                              <td style={td}>{d ? d.toLocaleString() : '-'}</td>
-                              <td style={td}>{actionLabel}</td>
-                              <td style={td}>{getLogUser(l)}</td>
-                              <td style={td}>{getLogRole(l)}</td>
-                              <td style={td}>{getLogEmail(l)}</td>
-                              <td style={td}>{getLogDetails(l)}</td>
-                            </tr>
-                          );
-                        })}
-
-                        {filteredLogs.length === 0 && (
-                          <tr>
-                            <td style={td} colSpan={6}>
-                              No logs found.
-                            </td>
-                          </tr>
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </>
-            )}
-          </div>
-        </main>
+        <div className="adContent">{renderMain()}</div>
       </section>
     </div>
   );
@@ -567,7 +622,7 @@ const th = {
   textAlign: 'left',
   padding: '10px 8px',
   borderBottom: '1px solid rgba(0,0,0,0.08)',
-  fontWeight: 800,
+  fontWeight: 900,
 };
 
 const td = {

@@ -343,7 +343,8 @@ function Login() {
 
         {step === 'login' && (
           <>
-            <h2 className="logHead">LOG-IN</h2>
+            <h2 className="logHead">SIGN IN</h2>
+            <div className="loginSub">SIGN IN TO YOUR ACCOUNT TO GET STARTED.</div>
 
             <div className="loginInputs">
               <input
@@ -375,7 +376,7 @@ function Login() {
               onClick={handleLogin}
               disabled={isLoading}
             >
-              {isLoading ? 'LOGGING IN...' : 'LOG-IN'}
+              {isLoading ? 'SIGNING IN...' : 'SIGN-IN'}
             </button>
 
             <button
@@ -394,7 +395,7 @@ function Login() {
               onClick={handleRegister}
               disabled={isLoading}
             >
-              Haven't registered yet? Register
+              Haven't registered yet? Sign-up here.
             </button>
           </>
         )}
