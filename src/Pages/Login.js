@@ -89,6 +89,7 @@ function Login() {
         setLoginOtp('');
         setResendTimer(60);
         setStep('loginOtp');
+        setResendTimer(60);
         return;
       }
 
@@ -123,6 +124,8 @@ function Login() {
       setFormError('');
       return;
     }
+
+    setErrors({});
 
     try {
       setIsLoading(true);
@@ -452,6 +455,9 @@ function Login() {
             <button type="button" className="logBtn" onClick={handleLogin} disabled={isLoading}>
               {isLoading ? 'SIGNING IN...' : 'SIGN-IN'}
             </button>
+            {formError && (
+              <div className="formError">{formError}</div>
+            )}
 
             {formError ? <div className="formError">{formError}</div> : null}
 
@@ -638,7 +644,6 @@ function Login() {
             )}
 
             <button
-              type="button"
               className="logBtn"
               onClick={resetStage === 'otp' ? handleProceedToPasswordStage : handleFinalPasswordReset}
               disabled={isLoading}
