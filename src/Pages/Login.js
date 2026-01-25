@@ -40,7 +40,6 @@ function Login() {
     return () => clearInterval(interval);
   }, [resendTimer]);
 
-  // ✅ CLEAR ERRORS kapag nagpapalit ng step/resetStage para walang lumalabas na validation agad
   useEffect(() => {
     setErrors({});
     setFormError('');
@@ -263,7 +262,6 @@ function Login() {
 
       setMaskedEmail(res.data?.maskedEmail || email);
 
-      // reset fields
       setOtp('');
       setNewPassword('');
       setConfirmNewPassword('');
@@ -317,7 +315,6 @@ function Login() {
     }
   };
 
-  // ✅ FIX: wag na i-call backend dito (para di ma-consume OTP)
   const handleProceedToPasswordStage = () => {
     setErrors({});
     setFormError('');
@@ -331,18 +328,15 @@ function Login() {
       return;
     }
 
-    // proceed only (final verification happens on final submit)
     setResetStage('password');
   };
 
-  // ✅ dito lang tatawag once: verify otp + set password
   const handleFinalPasswordReset = async () => {
     setFormError('');
 
     const isValid = validateNewPassword(newPassword, confirmNewPassword);
     if (!isValid) return;
 
-    // safety: ensure otp exists
     if (!otpMeta.otpId || !otp.trim()) {
       setErrors({ otp: 'Missing OTP. Please request reset again.' });
       return;
@@ -359,7 +353,6 @@ function Login() {
 
       alert('Password changed successfully! You can login now.');
 
-      // reset all forgot state
       setStep('login');
       setResetStage('otp');
       setFpEmail('');
