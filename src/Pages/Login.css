@@ -121,6 +121,28 @@
   text-decoration: none;
 }
 
+.fieldError {
+  color: #c62828;
+  font-size: 13px;
+  margin-top: 4px;
+  font-weight: 600;
+
+  text-align: left;
+  align-self: flex-start;
+  width: 100%;
+}
+
+.formError {
+  color: #c62828;
+  font-size: 13px;
+  margin-top: 10px;
+  font-weight: 700;
+
+  text-align: left;
+  align-self: flex-start;
+  width: 100%;
+}
+
 @media (max-width: 400px) {
   .loginMainCont {
     padding: 28px 22px;

@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import axios from 'axios';
 import { useLocation, useNavigate } from 'react-router-dom';
-import './Home.css';
+import './HomeStudent.css';
 
 function HomePageStudent() {
   const navigate = useNavigate();

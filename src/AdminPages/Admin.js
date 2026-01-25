@@ -19,6 +19,19 @@ function Admin() {
     lname: '',
     email: '',
     number: '',
+    username: '',
+    role: '',
+  });
+
+  // ✅ CREATE INSTRUCTOR FORM
+  const [creating, setCreating] = useState(false);
+  const [createDraft, setCreateDraft] = useState({
+    fname: '',
+    lname: '',
+    email: '',
+    number: '',
+    username: '',
+    password: '',
   });
 
   const [activityType, setActivityType] = useState('All Activities');
@@ -43,12 +56,11 @@ function Admin() {
       actorUser: admin?._id || null,
       actorName,
       actorRole: admin?.role || 'admin',
+      actorEmail: admin?.email || '',
     };
   }, []);
 
-  const handleSearch = (e) => {
-    e.preventDefault();
-  };
+  const handleSearch = (e) => e.preventDefault();
 
   const handleLogout = () => {
     localStorage.removeItem('token');
@@ -56,9 +68,7 @@ function Admin() {
     navigate('/Login');
   };
 
-  const handleNav = (name) => {
-    setActive(name);
-  };
+  const handleNav = (name) => setActive(name);
 
   const fetchUsers = async () => {
     try {
@@ -101,7 +111,8 @@ function Admin() {
         full.includes(q) ||
         (u.email || '').toLowerCase().includes(q) ||
         (u.username || '').toLowerCase().includes(q) ||
-        (u.number || '').toLowerCase().includes(q)
+        (u.number || '').toLowerCase().includes(q) ||
+        (u.role || '').toLowerCase().includes(q)
       );
     });
   }, [users, search]);
@@ -110,6 +121,7 @@ function Admin() {
     const a = (l.action || l.type || '').toLowerCase();
     if (a.includes('login')) return 'Login';
     if (a.includes('register') || a.includes('signup')) return 'Registration';
+    if (a.includes('create instructor')) return 'Create Instructor';
     if (a.includes('deactivate') || a.includes('activate') || a.includes('status')) return 'Status Change';
     if (a.includes('update') || a.includes('edit')) return 'Update';
     if (a.includes('delete') || a.includes('remove')) return 'Delete';
@@ -209,12 +221,14 @@ function Admin() {
       lname: user.lname || '',
       email: user.email || '',
       number: user.number || '',
+      username: user.username || '',
+      role: user.role || '',
     });
   };
 
   const cancelEdit = () => {
     setEditingId('');
-    setEditDraft({ fname: '', lname: '', email: '', number: '' });
+    setEditDraft({ fname: '', lname: '', email: '', number: '', username: '', role: '' });
   };
 
   const saveEdit = async () => {
@@ -236,6 +250,8 @@ function Admin() {
         lname: editDraft.lname.trim(),
         email: editDraft.email.trim(),
         number: editDraft.number.trim(),
+        username: editDraft.username.trim(),
+        // role: editDraft.role, // optional: kung gusto mo ma-edit role sa admin
         ...actorPayload,
         details: `Admin updated account fields for userId=${editingId}`,
       });
@@ -266,6 +282,52 @@ function Admin() {
     } catch (err) {
       console.error(err);
       alert(err?.response?.data?.message || 'Failed to delete user.');
+    }
+  };
+
+  // ✅ CREATE INSTRUCTOR
+  const validateCreate = () => {
+    const d = createDraft;
+    if (!d.fname.trim() || !d.lname.trim()) return 'First name and last name are required.';
+    const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRe.test(d.email.trim())) return 'Please enter a valid email.';
+    if (!d.username.trim()) return 'Username is required.';
+    if (!d.password || d.password.length < 8) return 'Password must be at least 8 characters.';
+    return null;
+  };
+
+  const handleCreateInstructor = async () => {
+    const err = validateCreate();
+    if (err) return alert(err);
+
+    try {
+      setCreating(true);
+
+      await axios.post('http://localhost:8000/api/admin/create-instructor', {
+        fname: createDraft.fname.trim(),
+        lname: createDraft.lname.trim(),
+        email: createDraft.email.trim(),
+        number: createDraft.number.trim(),
+        username: createDraft.username.trim(),
+        password: createDraft.password,
+        role: 'instructor',
+        ...actorPayload,
+        action: 'Create Instructor',
+        details: `Admin created instructor account for ${createDraft.email.trim()}`,
+        targetEmail: createDraft.email.trim(),
+      });
+
+      alert('Instructor account created!');
+
+      setCreateDraft({ fname: '', lname: '', email: '', number: '', username: '', password: '' });
+
+      await fetchUsers();
+      await fetchLogs();
+    } catch (e) {
+      console.error(e);
+      alert(e?.response?.data?.message || 'Failed to create instructor.');
+    } finally {
+      setCreating(false);
     }
   };
 
@@ -305,6 +367,65 @@ function Admin() {
         </div>
       </div>
 
+      {/* ✅ CREATE INSTRUCTOR CARD */}
+      <div className="adminCard" style={{ marginTop: 12 }}>
+        <div className="adminCardHead">
+          <div className="adminTitle" style={{ fontSize: 18 }}>Create Instructor Account</div>
+          <div className="adminSub">This will appear in Account Management and Audit Logs.</div>
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 10 }}>
+          <input
+            style={miniInputFullWide}
+            placeholder="First name"
+            value={createDraft.fname}
+            onChange={(e) => setCreateDraft((p) => ({ ...p, fname: e.target.value }))}
+          />
+          <input
+            style={miniInputFullWide}
+            placeholder="Last name"
+            value={createDraft.lname}
+            onChange={(e) => setCreateDraft((p) => ({ ...p, lname: e.target.value }))}
+          />
+          <input
+            style={miniInputFullWide}
+            placeholder="Email"
+            value={createDraft.email}
+            onChange={(e) => setCreateDraft((p) => ({ ...p, email: e.target.value }))}
+          />
+          <input
+            style={miniInputFullWide}
+            placeholder="Number"
+            value={createDraft.number}
+            onChange={(e) => setCreateDraft((p) => ({ ...p, number: e.target.value }))}
+          />
+          <input
+            style={miniInputFullWide}
+            placeholder="Username"
+            value={createDraft.username}
+            onChange={(e) => setCreateDraft((p) => ({ ...p, username: e.target.value }))}
+          />
+          <input
+            style={miniInputFullWide}
+            placeholder="Temporary Password"
+            type="password"
+            value={createDraft.password}
+            onChange={(e) => setCreateDraft((p) => ({ ...p, password: e.target.value }))}
+          />
+        </div>
+
+        <div style={{ marginTop: 10, display: 'flex', justifyContent: 'flex-end' }}>
+          <button
+            type="button"
+            className="adminMiniBtn"
+            onClick={handleCreateInstructor}
+            disabled={creating}
+          >
+            {creating ? 'Creating...' : 'Create Instructor'}
+          </button>
+        </div>
+      </div>
+
       {loadingUsers ? (
         <p>Loading users...</p>
       ) : (
@@ -314,6 +435,7 @@ function Admin() {
               <tr>
                 <th style={th}>Name</th>
                 <th style={th}>Email</th>
+                <th style={th}>Role</th>
                 <th style={th}>Number</th>
                 <th style={th}>Status</th>
                 <th style={th}>Actions</th>
@@ -354,6 +476,19 @@ function Admin() {
                       />
                     ) : (
                       u.email
+                    )}
+                  </td>
+
+                  <td style={td}>
+                    {editingId === u._id ? (
+                      <input
+                        value={editDraft.role}
+                        disabled
+                        placeholder="role"
+                        style={miniInputFull}
+                      />
+                    ) : (
+                      u.role || 'user'
                     )}
                   </td>
 
@@ -415,7 +550,7 @@ function Admin() {
 
               {filteredUsers.length === 0 && (
                 <tr>
-                  <td style={td} colSpan={5}>
+                  <td style={td} colSpan={6}>
                     No users found.
                   </td>
                 </tr>
@@ -443,6 +578,7 @@ function Admin() {
             <option>All Activities</option>
             <option>Login</option>
             <option>Registration</option>
+            <option>Create Instructor</option>
             <option>Status Change</option>
             <option>Update</option>
             <option>Delete</option>
@@ -643,6 +779,14 @@ const miniInputFull = {
   padding: '8px 10px',
   borderRadius: 8,
   border: '1px solid rgba(0,0,0,0.18)',
+};
+
+const miniInputFullWide = {
+  width: '100%',
+  padding: '10px 12px',
+  borderRadius: 10,
+  border: '1px solid rgba(0,0,0,0.14)',
+  outline: 'none',
 };
 
 export default Admin;
