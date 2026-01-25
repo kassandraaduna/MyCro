@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import './Login.css';
@@ -20,17 +20,45 @@ function Login() {
   const [otp, setOtp] = useState('');
   const [otpMeta, setOtpMeta] = useState({ otpId: '', expiresAt: '' });
 
+  const [resetStage, setResetStage] = useState('otp');
+  const [resendTimer, setResendTimer] = useState(0);
+
   const [newPassword, setNewPassword] = useState('');
   const [confirmNewPassword, setConfirmNewPassword] = useState('');
 
+  const [errors, setErrors] = useState({});
+  const [formError, setFormError] = useState('');
+
   const navigate = useNavigate();
+
+  useEffect(() => {
+    if (resendTimer <= 0) return;
+
+    const interval = setInterval(() => {
+      setResendTimer((prev) => prev - 1);
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [resendTimer]);
 
   const handleLogin = async () => {
     const userInput = usernameOrEmail.trim();
     const passInput = password;
 
     if (!userInput || !passInput) {
-      alert('Please enter your username/email and password.');
+      const newErrors = {};
+      setFormError('');
+      if (!usernameOrEmail.trim()) {
+        newErrors.usernameOrEmail = 'Username or email is required.';
+      }
+      if (!password) {
+        newErrors.password = 'Password is required.';
+      }
+      if (Object.keys(newErrors).length > 0) {
+        setErrors(newErrors);
+        return;
+      }
+      setErrors({});
       return;
     }
 
@@ -59,6 +87,7 @@ function Login() {
         setLoginEmail(res.data?.email || ''); 
         setLoginOtp('');
         setStep('loginOtp');
+        setResendTimer(60);
         return;
       }
 
@@ -78,7 +107,7 @@ function Login() {
     } catch (error) {
       console.error('Login error:', error);
       const msg = error?.response?.data?.message || 'Login failed. Please try again.';
-      alert(msg);
+      setFormError(msg);
     } finally {
       setIsLoading(false);
     }
@@ -86,14 +115,12 @@ function Login() {
 
   // ✅ Verify OTP for Login (MFA)
   const handleVerifyLoginOtp = async () => {
-    if (!loginOtpMeta.otpId) {
-      alert('Missing OTP session. Please resend code.');
-      return;
-    }
     if (!loginOtp.trim()) {
-      alert('Please enter the verification code.');
+      setErrors({ otp: 'Please enter the 6-digit code.' });
       return;
     }
+
+    setErrors({});
 
     try {
       setIsLoading(true);
@@ -129,7 +156,7 @@ function Login() {
         error?.response?.data?.message ||
         error?.response?.data?.error ||
         'Verification failed. Please try again.';
-      alert(msg);
+      setFormError(msg);
     } finally {
       setIsLoading(false);
     }
@@ -137,7 +164,16 @@ function Login() {
 
   const handleResendLoginOtp = async () => {
     if (!loginEmail) {
-      alert('Missing email for resend. Please login again.');
+      const newErrors = {};
+      setFormError('');
+      if (!loginEmail) {
+        newErrors.usernameOrEmail = 'Missing email for resend. Please login again.';
+      }
+      if (Object.keys(newErrors).length > 0) {
+        setErrors(newErrors);
+        return;
+      }
+      setErrors({});
       setStep('login');
       return;
     }
@@ -158,13 +194,14 @@ function Login() {
       setLoginEmail(res.data?.email || loginEmail);
 
       alert('Verification code resent!');
+      setResendTimer(60);
     } catch (error) {
       console.error('RESEND LOGIN OTP ERROR:', error);
       const msg =
         error?.response?.data?.message ||
         error?.response?.data?.error ||
         'Failed to resend code.';
-      alert(msg);
+      setFormError(msg);
     } finally {
       setIsLoading(false);
     }
@@ -182,12 +219,22 @@ function Login() {
   };
 
   const validateNewPassword = (pass, confirm) => {
-    if (!pass || !confirm) return 'Please enter and confirm your new password.';
-    if (pass.length < 8) return 'New password must be at least 8 characters long.';
-    const specialCharRegex = /[!@#$%^&*]/;
-    if (!specialCharRegex.test(pass)) return 'New password must contain at least one special character.';
-    if (pass !== confirm) return 'Passwords do not match.';
-    return null;
+    const newErrors = {};
+    setFormError('');
+
+    if (!pass || !confirm) {
+      newErrors.password = 'Please enter and confirm your new password.';
+    } else if (pass.length < 8) {
+      newErrors.password = 'New password must be at least 8 characters long.';
+    } else if (!/[!@#$%^&*]/.test(pass)) {
+      newErrors.password = 'Must include a special character.';
+    } else if (pass !== confirm) {
+      newErrors.password = 'Passwords do not match.';
+    }
+
+    setErrors(newErrors);
+
+    return Object.keys(newErrors).length === 0;
   };
 
   const handleSendResetOtp = async () => {
@@ -220,6 +267,7 @@ function Login() {
       setNewPassword('');
       setConfirmNewPassword('');
       setStep('verify');
+      setResendTimer(60);
     } catch (error) {
       console.error('REQUEST RESET OTP ERROR:', error);
       const msg =
@@ -253,6 +301,7 @@ function Login() {
 
       setMaskedEmail(res.data?.maskedEmail || email);
       alert('Reset code resent!');
+      setResendTimer(60);
     } catch (error) {
       console.error('RESEND RESET OTP ERROR:', error);
       const msg =
@@ -265,20 +314,9 @@ function Login() {
     }
   };
 
-  const handleVerifyResetAndChangePassword = async () => {
-    if (!otpMeta.otpId) {
-      alert('Missing OTP session. Please resend code.');
-      return;
-    }
-
-    if (!otp.trim()) {
-      alert('Please enter the verification code.');
-      return;
-    }
-
-    const errMsg = validateNewPassword(newPassword, confirmNewPassword);
-    if (errMsg) {
-      alert(errMsg);
+  const handleVerifyOtpAndChangePassword = async () => {
+    if (!otpMeta.otpId || !otp.trim()) {
+      alert('Please enter the 6-digit OTP sent to your email.');
       return;
     }
 
@@ -288,29 +326,52 @@ function Login() {
       await axios.post('http://localhost:8000/api/auth/verify-password-reset-otp', {
         otpId: otpMeta.otpId,
         code: otp.trim(),
-        newPassword: newPassword,
+        newPassword: '__TEMP__PASS__!@#',
       });
 
-      alert('Password reset successful! You can login now.');
-
-      setStep('login');
-      setFpEmail('');
-      setMaskedEmail('');
-      setOtp('');
-      setOtpMeta({ otpId: '', expiresAt: '' });
-      setNewPassword('');
-      setConfirmNewPassword('');
+      setResetStage('password');
     } catch (error) {
-      console.error('VERIFY RESET OTP ERROR:', error);
       const msg =
         error?.response?.data?.message ||
-        error?.response?.data?.error ||
-        'Verification failed. Please try again.';
+        'Invalid or expired OTP.';
       alert(msg);
     } finally {
       setIsLoading(false);
     }
   };
+
+  const handleFinalPasswordReset = async () => {
+  const isValid = validateNewPassword(newPassword, confirmNewPassword);
+  if (!isValid) return;
+
+  try {
+    setIsLoading(true);
+
+    await axios.post('http://localhost:8000/api/auth/verify-password-reset-otp', {
+      otpId: otpMeta.otpId,
+      code: otp.trim(),
+      newPassword,
+    });
+
+    alert('Password changed successfully! You can login now.');
+
+    setStep('login');
+    setResetStage('otp');
+    setFpEmail('');
+    setMaskedEmail('');
+    setOtp('');
+    setOtpMeta({ otpId: '', expiresAt: '' });
+    setNewPassword('');
+    setConfirmNewPassword('');
+  } catch (error) {
+    alert(
+      error?.response?.data?.message ||
+      'Password reset failed.'
+    );
+  } finally {
+    setIsLoading(false);
+  }
+};
 
   const goForgot = () => {
     setStep('forgot');
@@ -335,6 +396,7 @@ function Login() {
     setLoginMaskedEmail('');
     setLoginEmail('');
     setLoginOtpMeta({ otpId: '', expiresAt: '' });
+    setResendTimer(0);
   };
 
   return (
@@ -353,10 +415,16 @@ function Login() {
                 autoComplete="off"
                 placeholder="Username or Email"
                 value={usernameOrEmail}
-                onChange={(e) => setUsernameOrEmail(e.target.value)}
+                onChange={(e) => {
+                  setUsernameOrEmail(e.target.value);
+                  setErrors((prev) => ({ ...prev, usernameOrEmail: '' }));
+                }}
                 onKeyDown={handleKeyDown}
                 disabled={isLoading}
               />
+              {errors.usernameOrEmail && (
+                <div className="fieldError">{errors.usernameOrEmail}</div>
+              )}
 
               <input
                 type="password"
@@ -364,10 +432,16 @@ function Login() {
                 autoComplete="off"
                 placeholder="Password"
                 value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                onChange={(e) => {
+                  setPassword(e.target.value)
+                  setErrors((prev) => ({ ...prev, password: '' }));
+                }}
                 onKeyDown={handleKeyDown}
                 disabled={isLoading}
               />
+              {errors.password && (
+                <div className="fieldError">{errors.password}</div>
+              )}
             </div>
 
             <button
@@ -378,6 +452,9 @@ function Login() {
             >
               {isLoading ? 'SIGNING IN...' : 'SIGN-IN'}
             </button>
+            {formError && (
+              <div className="formError">{formError}</div>
+            )}
 
             <button
               type="button"
@@ -433,10 +510,12 @@ function Login() {
               type="button"
               className="registerTextBtn"
               onClick={handleResendLoginOtp}
-              disabled={isLoading}
+              disabled={isLoading || resendTimer > 0}
               style={{ marginTop: 10 }}
             >
-              Resend code
+              {resendTimer > 0
+                ? `Resend code (${resendTimer}s)`
+                : 'Resend code'}
             </button>
 
             <div>
@@ -457,7 +536,8 @@ function Login() {
 
         {step === 'forgot' && (
           <>
-            <h2 className="logHead">Forgot Password</h2>
+            <h2 className="logHead">RESET PASSWORD</h2>
+            <div className="loginSub">Enter the email associated to your account.</div>
 
             <div className="loginInputs">
               <input
@@ -477,7 +557,7 @@ function Login() {
               onClick={handleSendResetOtp}
               disabled={isLoading}
             >
-              {isLoading ? 'SENDING CODE...' : 'Send OTP'}
+              {isLoading ? 'SENDING OTP...' : 'Send OTP'}
             </button>
 
             <button
@@ -494,72 +574,94 @@ function Login() {
 
         {step === 'verify' && (
           <>
-            <h2 className="logHead">Verify OTP</h2>
+            <h2 className="logHead">
+              {resetStage === 'otp' ? 'Verify OTP' : 'Reset Password'}
+            </h2>
 
-            <p style={{ marginTop: 6, fontSize: 13, color: '#9c4b6f' }}>
-              The verification code has been sent to your email <b>{maskedEmail}</b>
-            </p>
+            {/* OTP INPUT (ALWAYS SHOWN FIRST) */}
+            {resetStage === 'otp' && (
+              <div className="loginInputs" style={{ marginTop: 14 }}>
+                  <p style={{ marginTop: 6, fontSize: 13, color: '#9c4b6f' }}>
+                    A 6-digit OTP was sent to <b>{maskedEmail}</b>
+                  </p>
+                <input
+                  type="text"
+                  placeholder="Enter 6-digit OTP"
+                  value={otp}
+                  onChange={(e) => setOtp(e.target.value)}
+                  inputMode="numeric"
+                  disabled={isLoading}
+                />
+                <button
+                  type="button"
+                  className="logBtn"
+                  onClick={handleResendResetOtp}
+                  disabled={isLoading || resendTimer > 0}
+                  style={{ marginTop: 10, marginBottom: -10 }}
+                >
+                  {resendTimer > 0 ? `Resend OTP (${resendTimer}s)` : 'Resend OTP'}
+                </button>
+              </div>
+            )}
 
-            <div className="loginInputs" style={{ marginTop: 14 }}>
-              <input
-                type="text"
-                placeholder="Enter verification code"
-                value={otp}
-                onChange={(e) => setOtp(e.target.value)}
-                inputMode="numeric"
-                disabled={isLoading}
-              />
+            {/* PASSWORD FIELDS (ONLY AFTER OTP VERIFIED) */}
+            {resetStage === 'password' && (
+              <>
+                <div className="loginInputs">
+                  <div className="passwordField">
+                    <p style={{ marginTop: 6, marginBottom:10, fontSize: 13, color: '#9c4b6f' }}>
+                    Enter your new password.
+                  </p>
+                    <input
+                      type={'password'}
+                      placeholder="Enter New Password"
+                      value={newPassword}
+                      onChange={(e) => {
+                        setNewPassword(e.target.value);
+                        validateNewPassword(e.target.value, confirmNewPassword);
+                      }}
+                      disabled={isLoading}
+                    />
+                  </div>
 
-              <input
-                type="password"
-                placeholder="New Password"
-                value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
-                disabled={isLoading}
-              />
-
-              <input
-                type="password"
-                placeholder="Confirm New Password"
-                value={confirmNewPassword}
-                onChange={(e) => setConfirmNewPassword(e.target.value)}
-                disabled={isLoading}
-              />
-            </div>
+                  <div className="passwordField">
+                    <input
+                      type={'password'}
+                      placeholder="Confirm New Password"
+                      value={confirmNewPassword}
+                      onChange={(e) => {
+                        setConfirmNewPassword(e.target.value);
+                        validateNewPassword(e.target.value, confirmNewPassword);
+                      }}
+                      disabled={isLoading}
+                    />
+                  </div>
+                  {errors.password && <div className="fieldError">{errors.password}</div>}
+                </div>
+              </>
+            )}
 
             <button
-              type="button"
               className="logBtn"
-              onClick={handleVerifyResetAndChangePassword}
-              disabled={isLoading}
+              onClick={
+                resetStage === 'otp'
+                  ? handleVerifyOtpAndChangePassword
+                  : handleFinalPasswordReset
+              }
             >
-              {isLoading ? 'VERIFYING...' : 'Continue'}
+              Continue
             </button>
 
-            <button
-              type="button"
-              className="registerTextBtn"
-              onClick={handleResendResetOtp}
-              disabled={isLoading}
-              style={{ marginTop: 10 }}
-            >
-              Resend code
-            </button>
-            
-            <div>
             <button
               type="button"
               className="registerTextBtn"
               onClick={backToLogin}
               disabled={isLoading}
-              style={{ marginTop: 10 }}
+              style={{ marginTop: 25 }}
             >
               Back to login
             </button>
-            </div>
-            
           </>
-          
         )}
 
       </div>

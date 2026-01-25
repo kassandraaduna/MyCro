@@ -116,6 +116,21 @@
   text-decoration: underline;
 }
 
+.fieldError {
+  color: #c62828;
+  font-size: 12px;
+  margin-top: 4px;
+  font-weight: 600;
+}
+
+.formError {
+  color: #c62828;
+  font-size: 13px;
+  margin-top: 12px;
+  text-align: center;
+  font-weight: 700;
+}
+
 @media (max-width: 450px) {
   .regMainCont {
     padding: 28px 22px;
