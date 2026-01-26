@@ -1,0 +1,339 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+.hiWrap {
+  width: 100%;
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: 260px 1fr;
+  background: #ffffff;
+}
+
+.hiSide {
+  border-right: 1px solid rgba(0,0,0,0.12);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  background: #ffffff;
+}
+
+.hiSideTop {
+  padding: 18px 16px 10px;
+}
+
+.hiLogo {
+  font-size: 22px;
+  font-weight: 900;
+  color: #3f5f4a;
+  margin-bottom: 16px;
+}
+
+.hiSectionTitle {
+  font-size: 11px;
+  font-weight: 800;
+  color: rgba(0,0,0,0.45);
+  margin: 8px 0 10px;
+}
+
+.hiNav {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.hiNavBtn {
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: none;
+  padding: 10px 12px;
+  border-radius: 10px;
+  cursor: pointer;
+  font-weight: 800;
+  color: rgba(0,0,0,0.7);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.hiNavBtn:hover {
+  background: rgba(246, 223, 232, 0.6);
+}
+
+.hiNavBtn.active {
+  background: rgba(246, 223, 232, 0.85);
+  border: 1px solid rgba(0,0,0,0.12);
+  color: rgba(0,0,0,0.8);
+}
+
+.hiDot {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(0,0,0,0.35);
+  background: rgba(255,255,255,0.9);
+}
+
+.hiSideBottom {
+  padding: 14px 16px;
+}
+
+.hiLogout {
+  width: 100%;
+  height: 38px;
+  border-radius: 10px;
+  border: none;
+  background: transparent;
+  font-weight: 900;
+  color: rgba(0,0,0,0.6);
+  cursor: pointer;
+  border-top: 1px solid rgba(0,0,0,0.10);
+  padding-top: 10px;
+}
+
+.hiLogout:hover {
+  color: rgba(0,0,0,0.8);
+}
+
+.hiMain {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.hiTopbar {
+  background: #f6dfe8;
+  border-bottom: 1px solid rgba(0,0,0,0.10);
+  padding: 14px 18px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.hiSearch {
+  flex: 1;
+  max-width: 540px;
+  display: flex;
+  align-items: center;
+  position: relative;
+}
+
+.hiSearch input {
+  width: 100%;
+  height: 34px;
+  border-radius: 18px;
+  border: 1px solid rgba(0,0,0,0.20);
+  background: rgba(255,255,255,0.65);
+  padding: 0 40px 0 14px;
+  font-size: 13px;
+}
+
+.hiSearch input:focus {
+  outline: none;
+  background: rgba(255,255,255,0.85);
+}
+
+.hiSearch button {
+  position: absolute;
+  right: 8px;
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  border: none;
+  background: rgba(255,255,255,0.65);
+  cursor: pointer;
+}
+
+.hiSearch button:hover {
+  background: rgba(255,255,255,0.85);
+}
+
+.hiWelcome {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 220px;
+  justify-content: flex-end;
+}
+
+.hiAvatar {
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  border: 1px solid rgba(0,0,0,0.18);
+  background: rgba(255,255,255,0.65);
+}
+
+.hiWelcomeText {
+  line-height: 1.05;
+  text-align: left;
+}
+
+.hiWelcomeTop {
+  font-size: 12px;
+  font-weight: 800;
+  color: rgba(0,0,0,0.55);
+}
+
+.hiWelcomeUser {
+  font-size: 12px;
+  font-weight: 900;
+  color: rgba(0,0,0,0.75);
+}
+
+.hiContent {
+  padding: 18px;
+}
+
+.hiCard {
+  width: 100%;
+  background: #ffffff;
+}
+
+.hiCardHead {
+  margin-bottom: 12px;
+}
+
+.hiCardTitle {
+  font-size: 14px;
+  font-weight: 900;
+  color: rgba(0,0,0,0.75);
+  letter-spacing: 0.2px;
+}
+
+.hiCardSub {
+  margin-top: 4px;
+  font-size: 12px;
+  font-weight: 800;
+  color: rgba(0,0,0,0.45);
+}
+
+/* PROFILE */
+.hiProfileGrid {
+  margin-top: 12px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+
+.hiBox {
+  border: 1px solid rgba(0,0,0,0.12);
+  border-radius: 10px;
+  padding: 12px;
+  background: #ffffff;
+}
+
+.hiBoxTitle {
+  font-size: 12px;
+  font-weight: 900;
+  color: rgba(0,0,0,0.7);
+  margin-bottom: 10px;
+}
+
+.hiPhotoRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.hiPhotoCircle {
+  width: 56px;
+  height: 56px;
+  border-radius: 999px;
+  border: 1px solid rgba(0,0,0,0.18);
+  background: rgba(246, 223, 232, 0.40);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  font-size: 22px;
+}
+
+.hiPhotoCircle img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.hiUploadBtn {
+  border: 1px solid rgba(0,0,0,0.18);
+  background: rgba(255,255,255,0.7);
+  padding: 10px 12px;
+  border-radius: 10px;
+  font-size: 12px;
+  font-weight: 900;
+  color: rgba(0,0,0,0.65);
+  cursor: pointer;
+}
+
+.hiUploadBtn input {
+  display: none;
+}
+
+.hiFieldRow {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.hiFieldCol {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.hiInput {
+  width: 100%;
+  height: 36px;
+  border-radius: 10px;
+  border: 1px solid rgba(0,0,0,0.18);
+  padding: 0 10px;
+  font-size: 13px;
+  background: rgba(255,255,255,0.85);
+}
+
+.hiInput:disabled {
+  opacity: 0.7;
+  background: rgba(245,245,245,0.7);
+}
+
+.hiActionsRow {
+  margin-top: 10px;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.hiBtn {
+  height: 34px;
+  padding: 0 14px;
+  border-radius: 10px;
+  border: 1px solid rgba(0,0,0,0.18);
+  background: rgba(246, 223, 232, 0.55);
+  font-weight: 900;
+  cursor: pointer;
+  color: rgba(0,0,0,0.70);
+}
+
+.hiBtn:hover {
+  background: rgba(246, 223, 232, 0.80);
+}
+
+.hiBtn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+@media (max-width: 980px) {
+  .hiWrap {
+    grid-template-columns: 220px 1fr;
+  }
+
+  .hiProfileGrid {
+    grid-template-columns: 1fr;
+  }
+}

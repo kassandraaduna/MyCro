@@ -23,7 +23,6 @@ function Admin() {
     role: '',
   });
 
-  // ✅ CREATE INSTRUCTOR FORM
   const [creating, setCreating] = useState(false);
   const [createDraft, setCreateDraft] = useState({
     fname: '',
@@ -31,7 +30,9 @@ function Admin() {
     email: '',
     number: '',
     username: '',
-    password: '',
+    dob: '',
+    gender: 'Male',
+    tempPassword: '',
   });
 
   const [activityType, setActivityType] = useState('All Activities');
@@ -122,6 +123,7 @@ function Admin() {
     if (a.includes('login')) return 'Login';
     if (a.includes('register') || a.includes('signup')) return 'Registration';
     if (a.includes('create instructor')) return 'Create Instructor';
+    if (a.includes('created instructor')) return 'Create Instructor';
     if (a.includes('deactivate') || a.includes('activate') || a.includes('status')) return 'Status Change';
     if (a.includes('update') || a.includes('edit')) return 'Update';
     if (a.includes('delete') || a.includes('remove')) return 'Delete';
@@ -250,8 +252,7 @@ function Admin() {
         lname: editDraft.lname.trim(),
         email: editDraft.email.trim(),
         number: editDraft.number.trim(),
-        username: editDraft.username.trim(),
-        // role: editDraft.role, // optional: kung gusto mo ma-edit role sa admin
+        username: editDraft.username.trim(), 
         ...actorPayload,
         details: `Admin updated account fields for userId=${editingId}`,
       });
@@ -285,14 +286,18 @@ function Admin() {
     }
   };
 
-  // ✅ CREATE INSTRUCTOR
+  // CREATE INSTRUCTOR
   const validateCreate = () => {
     const d = createDraft;
     if (!d.fname.trim() || !d.lname.trim()) return 'First name and last name are required.';
     const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRe.test(d.email.trim())) return 'Please enter a valid email.';
     if (!d.username.trim()) return 'Username is required.';
-    if (!d.password || d.password.length < 8) return 'Password must be at least 8 characters.';
+    if (!d.number.trim()) return 'Number is required.';
+    if (!d.dob) return 'Birthday (DOB) is required.';
+    if (!d.gender) return 'Gender is required.';
+    if (!d.tempPassword || d.tempPassword.length < 8) return 'Temporary password must be at least 8 characters.';
+    if (!/[!@#$%^&*]/.test(d.tempPassword)) return 'Temporary password must include a special character (!@#$%^&*).';
     return null;
   };
 
@@ -303,23 +308,33 @@ function Admin() {
     try {
       setCreating(true);
 
-      await axios.post('http://localhost:8000/api/admin/create-instructor', {
+      await axios.post('http://localhost:8000/api/admin/instructors', {
         fname: createDraft.fname.trim(),
         lname: createDraft.lname.trim(),
-        email: createDraft.email.trim(),
+        email: createDraft.email.trim().toLowerCase(),
         number: createDraft.number.trim(),
         username: createDraft.username.trim(),
-        password: createDraft.password,
-        role: 'instructor',
+        dob: createDraft.dob, 
+        gender: createDraft.gender,
+        tempPassword: createDraft.tempPassword,
+
         ...actorPayload,
-        action: 'Create Instructor',
-        details: `Admin created instructor account for ${createDraft.email.trim()}`,
-        targetEmail: createDraft.email.trim(),
+
+        details: `Admin created instructor account for ${createDraft.email.trim().toLowerCase()}`,
       });
 
       alert('Instructor account created!');
 
-      setCreateDraft({ fname: '', lname: '', email: '', number: '', username: '', password: '' });
+      setCreateDraft({
+        fname: '',
+        lname: '',
+        email: '',
+        number: '',
+        username: '',
+        dob: '',
+        gender: 'Male',
+        tempPassword: '',
+      });
 
       await fetchUsers();
       await fetchLogs();
@@ -367,7 +382,6 @@ function Admin() {
         </div>
       </div>
 
-      {/* ✅ CREATE INSTRUCTOR CARD */}
       <div className="adminCard" style={{ marginTop: 12 }}>
         <div className="adminCardHead">
           <div className="adminTitle" style={{ fontSize: 18 }}>Create Instructor Account</div>
@@ -393,6 +407,7 @@ function Admin() {
             value={createDraft.email}
             onChange={(e) => setCreateDraft((p) => ({ ...p, email: e.target.value }))}
           />
+
           <input
             style={miniInputFullWide}
             placeholder="Number"
@@ -405,13 +420,36 @@ function Admin() {
             value={createDraft.username}
             onChange={(e) => setCreateDraft((p) => ({ ...p, username: e.target.value }))}
           />
+
+          <input
+            style={miniInputFullWide}
+            type="date"
+            placeholder="DOB"
+            value={createDraft.dob}
+            onChange={(e) => setCreateDraft((p) => ({ ...p, dob: e.target.value }))}
+          />
+
+          <select
+            style={miniInputFullWide}
+            value={createDraft.gender}
+            onChange={(e) => setCreateDraft((p) => ({ ...p, gender: e.target.value }))}
+          >
+            <option>Male</option>
+            <option>Female</option>
+            <option>Other</option>
+            <option>Prefer not to say</option>
+          </select>
+
           <input
             style={miniInputFullWide}
             placeholder="Temporary Password"
             type="password"
-            value={createDraft.password}
-            onChange={(e) => setCreateDraft((p) => ({ ...p, password: e.target.value }))}
+            value={createDraft.tempPassword}
+            onChange={(e) => setCreateDraft((p) => ({ ...p, tempPassword: e.target.value }))}
           />
+
+          {/* spacer to keep grid nice */}
+          <div />
         </div>
 
         <div style={{ marginTop: 10, display: 'flex', justifyContent: 'flex-end' }}>
@@ -481,12 +519,7 @@ function Admin() {
 
                   <td style={td}>
                     {editingId === u._id ? (
-                      <input
-                        value={editDraft.role}
-                        disabled
-                        placeholder="role"
-                        style={miniInputFull}
-                      />
+                      <input value={editDraft.role} disabled placeholder="role" style={miniInputFull} />
                     ) : (
                       u.role || 'user'
                     )}

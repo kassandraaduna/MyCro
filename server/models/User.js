@@ -18,6 +18,8 @@ const UserSchema = new mongoose.Schema(
     active: { type: Boolean, default: true },
     role: { type: String, default: 'user' },
 
+    mustChangePassword: { type: Boolean, default: false },
+
     mfaLastVerifiedAt: { type: Date, default: null },
   },
   { timestamps: true }

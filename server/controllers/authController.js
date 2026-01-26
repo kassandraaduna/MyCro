@@ -5,7 +5,7 @@ const AuditLog = require('../models/AuditLog');
 const EmailOtp = require('../models/EmailOtp');
 
 const OTP_EXP_MINUTES = Number(process.env.OTP_EXP_MINUTES || 10);
-const RESEND_COOLDOWN_SECONDS = 60; 
+const RESEND_COOLDOWN_SECONDS = 60;
 
 const MFA_INTERVAL_DAYS = Number(process.env.MFA_INTERVAL_DAYS || 15);
 
@@ -57,7 +57,7 @@ const enforceCooldown = async (email, purpose, messagePrefix) => {
 };
 
 const isMfaDue = (lastVerifiedAt) => {
-  if (!lastVerifiedAt) return true; 
+  if (!lastVerifiedAt) return true;
   const ms = MFA_INTERVAL_DAYS * 24 * 60 * 60 * 1000;
   return Date.now() - new Date(lastVerifiedAt).getTime() >= ms;
 };
@@ -73,6 +73,7 @@ const buildSafeUser = (user) => ({
   email: user.email,
   role: user.role,
   active: user.active,
+  mustChangePassword: !!user.mustChangePassword, 
 });
 
 const login = async (req, res) => {
@@ -126,7 +127,7 @@ const login = async (req, res) => {
         mfaRequired: true,
         otpId: otpDoc._id,
         maskedEmail: maskEmail(user.email),
-        email: user.email, 
+        email: user.email,
         expiresAt: otpDoc.expiresAt,
       });
     }
@@ -191,7 +192,7 @@ const verifyLoginOtp = async (req, res) => {
 
     otpDoc.used = true;
     await otpDoc.save();
-    
+
     const user = await UserModel.findOne({ email: otpDoc.email });
     if (!user) return res.status(404).json({ message: 'User not found.' });
 
@@ -238,18 +239,14 @@ const resendLoginOtp = async (req, res) => {
     const purpose = 'login_mfa';
 
     const user = await UserModel.findOne({ email: cleanEmail }).lean();
-    if (!user) {
-      return res.status(404).json({ message: 'Email not found.' });
-    }
+    if (!user) return res.status(404).json({ message: 'Email not found.' });
 
     if (user.active === false) {
       return res.status(403).json({ message: 'Account is deactivated. Please contact admin.' });
     }
 
     const cooldown = await enforceCooldown(cleanEmail, purpose, 'Please wait');
-    if (cooldown.blocked) {
-      return res.status(429).json({ message: cooldown.message });
-    }
+    if (cooldown.blocked) return res.status(429).json({ message: cooldown.message });
 
     const code = makeOtpCode();
     const codeHash = await bcrypt.hash(code, 10);
@@ -294,9 +291,7 @@ const changePassword = async (req, res) => {
     const ok = await bcrypt.compare(currentPassword, user.password);
     if (!ok) return res.status(401).json({ message: 'Current password is incorrect' });
 
-    if (newPassword.length < 8) {
-      return res.status(400).json({ message: 'New password must be at least 8 characters long' });
-    }
+    if (newPassword.length < 8) return res.status(400).json({ message: 'New password must be at least 8 characters long' });
 
     const specialCharRegex = /[!@#$%^&*]/;
     if (!specialCharRegex.test(newPassword)) {
@@ -305,6 +300,9 @@ const changePassword = async (req, res) => {
 
     const salt = await bcrypt.genSalt(10);
     user.password = await bcrypt.hash(newPassword, salt);
+
+    user.mustChangePassword = false;
+
     await user.save();
 
     try {
@@ -328,6 +326,7 @@ const changePassword = async (req, res) => {
   }
 };
 
+
 const requestEmailOtp = async (req, res) => {
   try {
     const { email, purpose } = req.body;
@@ -337,14 +336,10 @@ const requestEmailOtp = async (req, res) => {
     const realPurpose = purpose || 'register';
 
     const existingUser = await UserModel.findOne({ email: cleanEmail }).lean();
-    if (existingUser) {
-      return res.status(409).json({ message: 'Email already registered.' });
-    }
+    if (existingUser) return res.status(409).json({ message: 'Email already registered.' });
 
     const cooldown = await enforceCooldown(cleanEmail, realPurpose, 'Please wait');
-    if (cooldown.blocked) {
-      return res.status(429).json({ message: cooldown.message });
-    }
+    if (cooldown.blocked) return res.status(429).json({ message: cooldown.message });
 
     const code = makeOtpCode();
     const codeHash = await bcrypt.hash(code, 10);
@@ -383,14 +378,10 @@ const resendEmailOtp = async (req, res) => {
     const realPurpose = purpose || 'register';
 
     const cooldown = await enforceCooldown(cleanEmail, realPurpose, 'Please wait');
-    if (cooldown.blocked) {
-      return res.status(429).json({ message: cooldown.message });
-    }
+    if (cooldown.blocked) return res.status(429).json({ message: cooldown.message });
 
     const existingUser = await UserModel.findOne({ email: cleanEmail }).lean();
-    if (existingUser) {
-      return res.status(409).json({ message: 'Email already registered.' });
-    }
+    if (existingUser) return res.status(409).json({ message: 'Email already registered.' });
 
     const code = makeOtpCode();
     const codeHash = await bcrypt.hash(code, 10);
@@ -446,7 +437,6 @@ const verifyEmailOtpAndRegister = async (req, res) => {
     if (!isValid) {
       otpDoc.attempts += 1;
       await otpDoc.save();
-
       return res.status(400).json({
         message: `Invalid code. Attempts left: ${otpDoc.maxAttempts - otpDoc.attempts}`,
       });
@@ -459,9 +449,7 @@ const verifyEmailOtpAndRegister = async (req, res) => {
       $or: [{ email: cleanEmail }, { username: medData.username }],
     }).lean();
 
-    if (existing) {
-      return res.status(409).json({ message: 'username or email already exists' });
-    }
+    if (existing) return res.status(409).json({ message: 'username or email already exists' });
 
     const { fname, lname, dob, gender, number, username, password } = medData;
 
@@ -480,6 +468,7 @@ const verifyEmailOtpAndRegister = async (req, res) => {
       role: 'user',
       active: true,
       mfaLastVerifiedAt: null,
+      mustChangePassword: false, 
     });
 
     await AuditLog.create({
@@ -590,25 +579,20 @@ const verifyPasswordResetOtp = async (req, res) => {
   try {
     const { otpId, code, newPassword } = req.body;
 
-    if (!otpId || !code || !newPassword) {
-      return res.status(400).json({ message: 'otpId, code, and newPassword are required' });
-    }
-
-    if (newPassword.length < 8) {
-      return res.status(400).json({ message: 'New password must be at least 8 characters long' });
-    }
-    const specialCharRegex = /[!@#$%^&*]/;
-    if (!specialCharRegex.test(newPassword)) {
-      return res.status(400).json({ message: 'New password must contain at least one special character' });
+    if (!otpId || !code) {
+      return res.status(400).json({ message: 'otpId and code are required' });
     }
 
     const otpDoc = await EmailOtp.findById(otpId);
     if (!otpDoc) return res.status(400).json({ message: 'OTP expired or not found.' });
-    if (otpDoc.used) return res.status(400).json({ message: 'OTP already used.' });
     if (otpDoc.expiresAt < new Date()) return res.status(400).json({ message: 'OTP expired.' });
 
     if (otpDoc.purpose !== 'reset_password') {
       return res.status(400).json({ message: 'Invalid OTP purpose.' });
+    }
+
+    if (otpDoc.used) {
+      return res.status(400).json({ message: 'OTP already used.' });
     }
 
     if (otpDoc.attempts >= otpDoc.maxAttempts) {
@@ -622,6 +606,19 @@ const verifyPasswordResetOtp = async (req, res) => {
       return res.status(400).json({
         message: `Invalid code. Attempts left: ${otpDoc.maxAttempts - otpDoc.attempts}`,
       });
+    }
+
+    // verify-only mode
+    if (!newPassword) {
+      return res.json({ message: 'OTP verified' });
+    }
+
+    if (newPassword.length < 8) {
+      return res.status(400).json({ message: 'New password must be at least 8 characters long' });
+    }
+    const specialCharRegex = /[!@#$%^&*]/;
+    if (!specialCharRegex.test(newPassword)) {
+      return res.status(400).json({ message: 'New password must contain at least one special character' });
     }
 
     otpDoc.used = true;

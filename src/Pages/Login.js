@@ -40,10 +40,30 @@ function Login() {
     return () => clearInterval(interval);
   }, [resendTimer]);
 
+  // clear errors kapag step/stage change
   useEffect(() => {
     setErrors({});
     setFormError('');
   }, [step, resetStage]);
+
+  const routeAfterLogin = (user) => {
+    if (!user) {
+      navigate('/Homepage');
+      return;
+    }
+    if (user.mustChangePassword) {
+      navigate('/ChangePassword', { state: { user } });
+      return;
+    }
+
+    //navigate sa instructor page
+    if (String(user.role || '').toLowerCase() === 'instructor') {
+      navigate('/HomeInstructor', { state: { instructor: user } });
+      return;
+    }
+
+    navigate('/Homepage', { state: { employee: user } });
+  };
 
   const handleLogin = async () => {
     const userInput = usernameOrEmail.trim();
@@ -88,7 +108,6 @@ function Login() {
         setLoginOtp('');
         setResendTimer(60);
         setStep('loginOtp');
-        setResendTimer(60);
         return;
       }
 
@@ -104,7 +123,7 @@ function Login() {
       setUsernameOrEmail('');
       setPassword('');
 
-      navigate('/Homepage', { state: { employee: user } });
+      routeAfterLogin(user);
     } catch (error) {
       const msg = error?.response?.data?.message || 'Login failed. Please try again.';
       setFormError(msg);
@@ -123,8 +142,6 @@ function Login() {
       setFormError('');
       return;
     }
-
-    setErrors({});
 
     try {
       setIsLoading(true);
@@ -151,10 +168,9 @@ function Login() {
 
       setUsernameOrEmail('');
       setPassword('');
-
       setStep('login');
 
-      navigate('/Homepage', { state: { employee: user } });
+      routeAfterLogin(user);
     } catch (error) {
       const msg =
         error?.response?.data?.message ||
@@ -315,20 +331,35 @@ function Login() {
     }
   };
 
-  const handleProceedToPasswordStage = () => {
-    setErrors({});
+  const handleVerifyOtpAndChangePassword = async () => {
     setFormError('');
+    setErrors({});
 
     const newErrors = {};
     if (!otpMeta.otpId) newErrors.otp = 'Missing OTP session. Please resend OTP.';
     if (!otp.trim()) newErrors.otp = 'Please enter the 6-digit OTP sent to your email.';
-    if (otp.trim().length !== 6) newErrors.otp = 'OTP must be 6 digits.';
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
       return;
     }
 
-    setResetStage('password');
+    try {
+      setIsLoading(true);
+
+      await axios.post('http://localhost:8000/api/auth/verify-password-reset-otp', {
+        otpId: otpMeta.otpId,
+        code: otp.trim(),
+      });
+
+      setResetStage('password');
+      setErrors({});
+      setFormError('');
+    } catch (error) {
+      const msg = error?.response?.data?.message || 'Invalid or expired OTP.';
+      setFormError(msg);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleFinalPasswordReset = async () => {
@@ -389,7 +420,6 @@ function Login() {
     setFormError('');
     setStep('login');
 
-    // reset forgot
     setOtp('');
     setOtpMeta({ otpId: '', expiresAt: '' });
     setMaskedEmail('');
@@ -397,7 +427,6 @@ function Login() {
     setConfirmNewPassword('');
     setResetStage('otp');
 
-    // reset login otp
     setLoginOtp('');
     setLoginMaskedEmail('');
     setLoginEmail('');
@@ -448,9 +477,6 @@ function Login() {
             <button type="button" className="logBtn" onClick={handleLogin} disabled={isLoading}>
               {isLoading ? 'SIGNING IN...' : 'SIGN-IN'}
             </button>
-            {formError && (
-              <div className="formError">{formError}</div>
-            )}
 
             {formError ? <div className="formError">{formError}</div> : null}
 
@@ -637,8 +663,9 @@ function Login() {
             )}
 
             <button
+              type="button"
               className="logBtn"
-              onClick={resetStage === 'otp' ? handleProceedToPasswordStage : handleFinalPasswordReset}
+              onClick={resetStage === 'otp' ? handleVerifyOtpAndChangePassword : handleFinalPasswordReset}
               disabled={isLoading}
             >
               {isLoading ? 'PLEASE WAIT...' : 'Continue'}

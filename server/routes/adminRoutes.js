@@ -1,5 +1,6 @@
 const express = require('express');
 const router = express.Router();
+const bcrypt = require('bcryptjs');
 const User = require('../models/User');
 const AuditLog = require('../models/AuditLog');
 
@@ -17,6 +18,92 @@ router.get('/users', async (req, res) => {
     return res.json(users);
   } catch (err) {
     console.error('GET /admin/users error:', err);
+    return res.status(500).json({ message: 'Internal Server Error' });
+  }
+});
+
+// create Instructor Account 
+router.post('/instructors', async (req, res) => {
+  try {
+    const {
+      fname,
+      lname,
+      dob,
+      gender,
+      number,
+      username,
+      email,
+      tempPassword,
+      details,
+    } = req.body;
+
+    const actor = getActor(req);
+
+    // basic validation
+    if (!fname || !lname || !dob || !gender || !number || !username || !email || !tempPassword) {
+      return res.status(400).json({
+        message:
+          'fname, lname, dob, gender, number, username, email, and tempPassword are required',
+      });
+    }
+
+    const cleanEmail = String(email).trim().toLowerCase();
+    const cleanUsername = String(username).trim();
+
+    // duplicates
+    const existing = await User.findOne({
+      $or: [{ email: cleanEmail }, { username: cleanUsername }],
+    }).lean();
+
+    if (existing) {
+      return res.status(409).json({ message: 'Email or username already exists.' });
+    }
+
+    // password rules (match your frontend rule)
+    if (String(tempPassword).length < 8) {
+      return res.status(400).json({ message: 'Temp password must be at least 8 characters long' });
+    }
+    if (!/[!@#$%^&*]/.test(String(tempPassword))) {
+      return res.status(400).json({ message: 'Temp password must include a special character.' });
+    }
+
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(String(tempPassword), salt);
+
+    const newInstructor = await User.create({
+      fname: String(fname).trim(),
+      lname: String(lname).trim(),
+      dob,
+      gender: String(gender).trim(),
+      number: String(number).trim(),
+      username: cleanUsername,
+      email: cleanEmail,
+      password: hashedPassword,
+      role: 'instructor',
+      active: true,
+
+      mustChangePassword: true,
+      passwordTemp: true,
+
+      mfaLastVerifiedAt: null,
+    });
+
+    await AuditLog.create({
+      action: 'Created instructor account',
+      ...actor,
+      targetUser: newInstructor._id,
+      targetEmail: newInstructor.email,
+      details:
+        details ||
+        `Admin created instructor account: ${newInstructor.email} (must change password on first login)`,
+    });
+
+    const safe = newInstructor.toObject();
+    delete safe.password;
+
+    return res.status(201).json(safe);
+  } catch (err) {
+    console.error('POST /admin/instructors error:', err);
     return res.status(500).json({ message: 'Internal Server Error' });
   }
 });
@@ -54,11 +141,7 @@ router.put('/users/:id/status', async (req, res) => {
   try {
     const { active, details } = req.body;
 
-    const user = await User.findByIdAndUpdate(
-      req.params.id,
-      { active },
-      { new: true }
-    );
+    const user = await User.findByIdAndUpdate(req.params.id, { active }, { new: true });
 
     if (!user) return res.status(404).json({ message: 'User not found' });
 
@@ -85,7 +168,7 @@ router.put('/users/:id/status', async (req, res) => {
 
 router.delete('/users/:id', async (req, res) => {
   try {
-    const { details } = req.body || {}; 
+    const { details } = req.body || {};
 
     const user = await User.findByIdAndDelete(req.params.id);
     const actor = getActor(req);
@@ -107,11 +190,7 @@ router.delete('/users/:id', async (req, res) => {
 
 router.get('/logs', async (req, res) => {
   try {
-    const logs = await AuditLog.find()
-      .sort({ createdAt: -1 })
-      .limit(100)
-      .lean();
-
+    const logs = await AuditLog.find().sort({ createdAt: -1 }).limit(100).lean();
     return res.json(logs);
   } catch (err) {
     console.error('GET /admin/logs error:', err);
