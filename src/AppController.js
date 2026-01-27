@@ -16,7 +16,6 @@ const AppRoutes = () => {
 
   return (
     <>
-      {/* ✅ Background routes */}
       <Routes location={backgroundLocation || location}>
         <Route path="/" element={<SplashScreen />} />
         <Route path="/Landing" element={<LandingPage />} />
@@ -30,7 +29,6 @@ const AppRoutes = () => {
         <Route path="/ChangePass" element={<ChangePassword />} />
       </Routes>
 
-      {/* ✅ Modal routes (only when backgroundLocation exists) */}
       {backgroundLocation && (
         <Routes>
           <Route path="/Login" element={<Login />} />

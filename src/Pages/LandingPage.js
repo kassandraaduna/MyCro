@@ -40,7 +40,6 @@ function LandingPage() {
 
   return (
     <div className="lpBody">
-      {/* background content */}
       <div className={`lpBackdrop ${authOpen ? 'blurred' : ''}`}>
         <header className="lpHeader">
           <div className="lpBrand" role="button" tabIndex={0}>
@@ -85,7 +84,6 @@ function LandingPage() {
         </main>
       </div>
 
-      {/* modal */}
       {authOpen && (
         <div className="lpModalOverlay" onClick={closeAuth}>
           <div className="lpModalCard" onClick={(e) => e.stopPropagation()}>

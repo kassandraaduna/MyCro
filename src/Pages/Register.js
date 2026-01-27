@@ -42,10 +42,8 @@ function Register({ isModal = false, onClose, onSwitchToLogin }) {
     }
   }, [location, navigate]);
 
-  // ✅ allow letters + spaces + hyphen + apostrophe
   const sanitizeName = (value) => value.replace(/[^a-zA-Z\s'-]/g, '');
 
-  // ✅ phone: digits only, max 11
   const sanitizePhone = (value) => {
     const digitsOnly = String(value || '').replace(/\D/g, '');
     return digitsOnly.slice(0, 11);
@@ -113,7 +111,6 @@ function Register({ isModal = false, onClose, onSwitchToLogin }) {
       return 'Please fill all required fields.';
     }
 
-    // ✅ Name validation
     const nameRegex = /^[A-Za-z]+(?:[ \-'][A-Za-z]+)*$/;
     if (!nameRegex.test(trimmedFname)) {
       return "First Name must contain letters only (spaces, hyphen '-', apostrophe ' allowed).";
@@ -135,7 +132,6 @@ function Register({ isModal = false, onClose, onSwitchToLogin }) {
       return 'Date of Birth cannot be in the future.';
     }
 
-    // ✅ AGE RESTRICTION: must be 18+
     const age = computeAge(dob);
     if (age === null) return 'Please enter a valid Date of Birth.';
     if (age < 18) return 'You must be at least 18 years old to register.';
@@ -145,7 +141,6 @@ function Register({ isModal = false, onClose, onSwitchToLogin }) {
       return 'Please select a valid gender.';
     }
 
-    // ✅ Phone: digits only + exactly 11
     const phoneDigits = trimmedNumber.replace(/\D/g, '');
     if (phoneDigits !== trimmedNumber) {
       return 'Phone number must contain numbers only.';
@@ -277,7 +272,6 @@ function Register({ isModal = false, onClose, onSwitchToLogin }) {
 
       alert("Account registered successfully!");
 
-      // ✅ if modal, balik sa login modal
       if (isModal && onSwitchToLogin) {
         onSwitchToLogin();
         return;
