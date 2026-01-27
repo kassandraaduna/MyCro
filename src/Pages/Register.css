@@ -6,8 +6,6 @@
 }
 
 .theBody {
-  width: 100%;
-  height: 100vh;
   background: radial-gradient(circle at top left, rgba(196, 220, 201, 0.35), transparent 55%),
               radial-gradient(circle at bottom right, rgba(246, 223, 232, 0.55), transparent 60%),
               #f7f7f7;

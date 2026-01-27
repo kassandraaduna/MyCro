@@ -39,6 +39,13 @@ function Admin() {
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');
 
+  const sanitizeName = (value) => String(value || '').replace(/[^a-zA-Z\s'-]/g, '');
+
+  const sanitizePhone = (value) => {
+    const digitsOnly = String(value || '').replace(/\D/g, '');
+    return digitsOnly.slice(0, 11);
+  };
+
   const actorPayload = useMemo(() => {
     let admin = null;
     try {
@@ -252,7 +259,7 @@ function Admin() {
         lname: editDraft.lname.trim(),
         email: editDraft.email.trim(),
         number: editDraft.number.trim(),
-        username: editDraft.username.trim(), 
+        username: editDraft.username.trim(),
         ...actorPayload,
         details: `Admin updated account fields for userId=${editingId}`,
       });
@@ -286,18 +293,38 @@ function Admin() {
     }
   };
 
-  // CREATE INSTRUCTOR
   const validateCreate = () => {
     const d = createDraft;
-    if (!d.fname.trim() || !d.lname.trim()) return 'First name and last name are required.';
+
+    const fname = d.fname.trim();
+    const lname = d.lname.trim();
+    const email = d.email.trim().toLowerCase();
+    const username = d.username.trim();
+    const number = d.number.trim();
+    const dob = d.dob;
+    const gender = d.gender;
+    const tempPassword = d.tempPassword;
+
+    if (!fname || !lname) return 'First name and last name are required.';
+
+    const nameRegex = /^[A-Za-z]+(?:[ \-'][A-Za-z]+)*$/;
+    if (!nameRegex.test(fname)) return "First name must be letters only (spaces, hyphen '-', apostrophe ' allowed).";
+    if (!nameRegex.test(lname)) return "Last name must be letters only (spaces, hyphen '-', apostrophe ' allowed).";
+
     const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRe.test(d.email.trim())) return 'Please enter a valid email.';
-    if (!d.username.trim()) return 'Username is required.';
-    if (!d.number.trim()) return 'Number is required.';
-    if (!d.dob) return 'Birthday (DOB) is required.';
-    if (!d.gender) return 'Gender is required.';
-    if (!d.tempPassword || d.tempPassword.length < 8) return 'Temporary password must be at least 8 characters.';
-    if (!/[!@#$%^&*]/.test(d.tempPassword)) return 'Temporary password must include a special character (!@#$%^&*).';
+    if (!emailRe.test(email)) return 'Please enter a valid email.';
+
+    if (!username) return 'Username is required.';
+
+    if (!number) return 'Number is required.';
+    if (!/^\d+$/.test(number)) return 'Phone number must contain numbers only.';
+    if (number.length !== 11) return 'Phone number must be exactly 11 digits.';
+
+    if (!dob) return 'Birthday is required.';
+    if (!gender) return 'Gender is required.';
+
+    if (!tempPassword || tempPassword.length < 8) return 'Temporary password must be at least 8 characters.';
+
     return null;
   };
 
@@ -314,12 +341,10 @@ function Admin() {
         email: createDraft.email.trim().toLowerCase(),
         number: createDraft.number.trim(),
         username: createDraft.username.trim(),
-        dob: createDraft.dob, 
+        dob: createDraft.dob,
         gender: createDraft.gender,
         tempPassword: createDraft.tempPassword,
-
         ...actorPayload,
-
         details: `Admin created instructor account for ${createDraft.email.trim().toLowerCase()}`,
       });
 
@@ -385,7 +410,7 @@ function Admin() {
       <div className="adminCard" style={{ marginTop: 12 }}>
         <div className="adminCardHead">
           <div className="adminTitle" style={{ fontSize: 18 }}>Create Instructor Account</div>
-          <div className="adminSub">This will appear in Account Management and Audit Logs.</div>
+          <div className="adminSub"></div>
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 10 }}>
@@ -393,13 +418,13 @@ function Admin() {
             style={miniInputFullWide}
             placeholder="First name"
             value={createDraft.fname}
-            onChange={(e) => setCreateDraft((p) => ({ ...p, fname: e.target.value }))}
+            onChange={(e) => setCreateDraft((p) => ({ ...p, fname: sanitizeName(e.target.value) }))}
           />
           <input
             style={miniInputFullWide}
             placeholder="Last name"
             value={createDraft.lname}
-            onChange={(e) => setCreateDraft((p) => ({ ...p, lname: e.target.value }))}
+            onChange={(e) => setCreateDraft((p) => ({ ...p, lname: sanitizeName(e.target.value) }))}
           />
           <input
             style={miniInputFullWide}
@@ -410,10 +435,14 @@ function Admin() {
 
           <input
             style={miniInputFullWide}
-            placeholder="Number"
+            type="text"
+            inputMode="numeric"
+            placeholder="Phone Number (11 digits)"
             value={createDraft.number}
-            onChange={(e) => setCreateDraft((p) => ({ ...p, number: e.target.value }))}
+            maxLength={11}
+            onChange={(e) => setCreateDraft((p) => ({ ...p, number: sanitizePhone(e.target.value) }))}
           />
+
           <input
             style={miniInputFullWide}
             placeholder="Username"
@@ -448,7 +477,6 @@ function Admin() {
             onChange={(e) => setCreateDraft((p) => ({ ...p, tempPassword: e.target.value }))}
           />
 
-          {/* spacer to keep grid nice */}
           <div />
         </div>
 

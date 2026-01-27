@@ -3,7 +3,7 @@ import axios from 'axios';
 import { useLocation, useNavigate } from 'react-router-dom';
 import './Register.css';
 
-function Register() {
+function Register({ isModal = false, onClose, onSwitchToLogin }) {
   const [newMed, setNewMed] = useState({
     fname: "",
     lname: "",
@@ -42,11 +42,41 @@ function Register() {
     }
   }, [location, navigate]);
 
+  // ✅ allow letters + spaces + hyphen + apostrophe
+  const sanitizeName = (value) => value.replace(/[^a-zA-Z\s'-]/g, '');
+
+  // ✅ phone: digits only, max 11
+  const sanitizePhone = (value) => {
+    const digitsOnly = String(value || '').replace(/\D/g, '');
+    return digitsOnly.slice(0, 11);
+  };
+
   const handleChange = (field) => (e) => {
+    let val = e.target.value;
+
+    if (field === 'fname' || field === 'lname') {
+      val = sanitizeName(val);
+    }
+
+    if (field === 'number') {
+      val = sanitizePhone(val);
+    }
+
     setNewMed((prev) => ({
       ...prev,
-      [field]: e.target.value
+      [field]: val
     }));
+  };
+
+  const computeAge = (dobStr) => {
+    const dobDate = new Date(dobStr);
+    if (Number.isNaN(dobDate.getTime())) return null;
+
+    const today = new Date();
+    let age = today.getFullYear() - dobDate.getFullYear();
+    const m = today.getMonth() - dobDate.getMonth();
+    if (m < 0 || (m === 0 && today.getDate() < dobDate.getDate())) age -= 1;
+    return age;
   };
 
   const validate = () => {
@@ -83,31 +113,48 @@ function Register() {
       return 'Please fill all required fields.';
     }
 
+    // ✅ Name validation
+    const nameRegex = /^[A-Za-z]+(?:[ \-'][A-Za-z]+)*$/;
+    if (!nameRegex.test(trimmedFname)) {
+      return "First Name must contain letters only (spaces, hyphen '-', apostrophe ' allowed).";
+    }
+    if (!nameRegex.test(trimmedLname)) {
+      return "Last Name must contain letters only (spaces, hyphen '-', apostrophe ' allowed).";
+    }
+
     const dobDate = new Date(dob);
     if (Number.isNaN(dobDate.getTime())) {
       return 'Please enter a valid Date of Birth.';
     }
+
     const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    if (dobDate > today) {
+    const today0 = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    const dob0 = new Date(dobDate.getFullYear(), dobDate.getMonth(), dobDate.getDate());
+
+    if (dob0 > today0) {
       return 'Date of Birth cannot be in the future.';
     }
+
+    // ✅ AGE RESTRICTION: must be 18+
+    const age = computeAge(dob);
+    if (age === null) return 'Please enter a valid Date of Birth.';
+    if (age < 18) return 'You must be at least 18 years old to register.';
 
     const allowedGenders = ['Male', 'Female', 'Other', 'Prefer not to say'];
     if (!allowedGenders.includes(trimmedGender)) {
       return 'Please select a valid gender.';
     }
 
-    const phoneDigits = trimmedNumber.replace(/[^\d]/g, '');
-    if (phoneDigits.length < 7 || phoneDigits.length > 11) {
-      return 'Please enter a valid phone number (7 to 11 digits).';
+    // ✅ Phone: digits only + exactly 11
+    const phoneDigits = trimmedNumber.replace(/\D/g, '');
+    if (phoneDigits !== trimmedNumber) {
+      return 'Phone number must contain numbers only.';
     }
-    const phoneRegex = /^\+?[0-9\s-()]+$/;
-    if (!phoneRegex.test(trimmedNumber)) {
-      return 'Phone number contains invalid characters.';
+    if (phoneDigits.length !== 11) {
+      return 'Phone number must be exactly 11 digits.';
     }
 
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    const emailRegex = /@gmail\.com$/;
     if (!emailRegex.test(trimmedEmail)) {
       return 'Please enter a valid email address.';
     }
@@ -173,8 +220,6 @@ function Register() {
       setStep('verify');
       setOtp('');
     } catch (error) {
-      console.error("REQUEST OTP ERROR:", error);
-
       const msg =
         error?.response?.data?.message ||
         error?.response?.data?.error ||
@@ -231,10 +276,15 @@ function Register() {
       setAgree(false);
 
       alert("Account registered successfully!");
+
+      // ✅ if modal, balik sa login modal
+      if (isModal && onSwitchToLogin) {
+        onSwitchToLogin();
+        return;
+      }
+
       navigate('/Login');
     } catch (error) {
-      console.error("VERIFY+REGISTER ERROR:", error);
-
       const msg =
         error?.response?.data?.message ||
         error?.response?.data?.error ||
@@ -262,7 +312,6 @@ function Register() {
       setMaskedEmail(res.data?.maskedEmail || medData.email);
       alert('Verification code resent!');
     } catch (error) {
-      console.error("RESEND OTP ERROR:", error);
       const msg =
         error?.response?.data?.message ||
         error?.response?.data?.error ||
@@ -274,15 +323,28 @@ function Register() {
   };
 
   const handleBackToLogin = () => {
+    if (isModal && onSwitchToLogin) {
+      onSwitchToLogin();
+      return;
+    }
     navigate('/Login');
   };
 
+  const ageHint = useMemo(() => {
+    if (!newMed.dob) return '';
+    const age = computeAge(newMed.dob);
+    if (age === null) return '';
+    return age < 18 ? `Age: ${age} (must be 18+)` : `Age: ${age}`;
+  }, [newMed.dob]);
+
   return (
-    <div className="theBody">
-      <div className="regMainCont">
+    <div className={isModal ? 'authModalBody' : 'theBody'}>
+      <div className={isModal ? 'authModalCardInner' : 'regMainCont'} >
+
         {step === 'form' && (
           <>
             <h2 className="logHead">SIGN UP</h2>
+            <div className="loginSub">CREATE AN ACCOUNT.</div>
 
             <div className="loginInputs">
               <input
@@ -305,6 +367,11 @@ function Register() {
                 value={newMed.dob}
                 onChange={handleChange('dob')}
               />
+              {ageHint ? (
+                <div style={{ fontSize: 12, fontWeight: 800, color: ageHint.includes('must be 18+') ? '#b00020' : '#1b5e20' }}>
+                  {ageHint}
+                </div>
+              ) : null}
 
               <select
                 value={newMed.gender}
@@ -318,10 +385,12 @@ function Register() {
               </select>
 
               <input
-                type="tel"
-                placeholder="Phone Number"
+                type="text"
+                inputMode="numeric"
+                placeholder="Phone Number (11 digits)"
                 value={newMed.number}
                 onChange={handleChange('number')}
+                maxLength={11}
               />
 
               <input

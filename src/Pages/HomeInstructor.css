@@ -328,6 +328,54 @@
   cursor: not-allowed;
 }
 
+
+.adWrap {
+  width: 100%;
+  height: 100vh;          
+  overflow: hidden;       
+  display: grid;
+  grid-template-columns: 260px 1fr;
+  background: #ffffff;
+}
+
+.adSide {
+  height: 100vh;          
+  position: sticky;      
+  top: 0;
+  border-right: 1px solid rgba(0,0,0,0.12);
+  display: flex;
+  flex-direction: column;
+  background: #ffffff;
+  overflow: hidden;      
+}
+
+.adSideTop {
+  flex: 1;
+  overflow-y: auto;       
+  padding: 18px 16px 10px;
+}
+
+.adSideBottom {
+  flex-shrink: 0;
+  padding: 14px 16px;
+  border-top: 1px solid rgba(0,0,0,0.10);
+  background: #ffffff;
+}
+
+.adMain {
+  height: 100vh;          
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;     
+}
+
+.adContent {
+  flex: 1;
+  overflow-y: auto;       
+  padding: 18px;
+}
+
 @media (max-width: 980px) {
   .hiWrap {
     grid-template-columns: 220px 1fr;

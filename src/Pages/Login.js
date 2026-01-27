@@ -3,7 +3,7 @@ import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import './Login.css';
 
-function Login() {
+function Login({ isModal = false, onClose, onSwitchToRegister }) {
   const [usernameOrEmail, setUsernameOrEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -47,12 +47,14 @@ function Login() {
   }, [step, resetStage]);
 
   const routeAfterLogin = (user) => {
+    if (isModal && onClose) onClose();
+
     if (!user) {
       navigate('/Homepage');
       return;
     }
     if (user.mustChangePassword) {
-      navigate('/ChangePassword', { state: { user } });
+      navigate('/ChangePass', { state: { user } });
       return;
     }
 
@@ -221,6 +223,10 @@ function Login() {
   };
 
   const handleRegister = () => {
+    if (isModal && onSwitchToRegister) {
+      onSwitchToRegister();
+      return;
+    }
     navigate('/Register');
   };
 
@@ -435,8 +441,8 @@ function Login() {
   };
 
   return (
-    <div className="theBody">
-      <div className="loginMainCont">
+    <div className={isModal ? 'authModalBody' : 'theBody'}>
+      <div className={isModal ? 'authModalCardInner' : 'loginMainCont'}>
         {step === 'login' && (
           <>
             <h2 className="logHead">SIGN IN</h2>
@@ -479,20 +485,22 @@ function Login() {
             </button>
 
             {formError ? <div className="formError">{formError}</div> : null}
-
+            <div>
             <button
               type="button"
               className="registerTextBtn"
               onClick={goForgot}
               disabled={isLoading}
-              style={{ marginTop: 10 }}
+              style={{ marginTop: 10}}
             >
               Forgot password?
             </button>
+            </div>
 
             <button type="button" className="registerTextBtn" onClick={handleRegister} disabled={isLoading}>
               Haven&apos;t registered yet? Sign-up here.
             </button>
+
           </>
         )}
 
