@@ -105,6 +105,12 @@ const login = async (req, res) => {
         return res.status(429).json({ message: cooldown.message });
       }
 
+      await EmailOtp.updateMany({ 
+        email: user.email, 
+        purpose, 
+        used: false }, { used: true }
+      );
+
       const code = makeOtpCode();
       const codeHash = await bcrypt.hash(code, 10);
       const expiresAt = new Date(Date.now() + OTP_EXP_MINUTES * 60 * 1000);
@@ -167,10 +173,13 @@ const verifyLoginOtp = async (req, res) => {
       return res.status(400).json({ message: 'otpId and code are required' });
     }
 
-    const otpDoc = await EmailOtp.findById(otpId);
-    if (!otpDoc) return res.status(400).json({ message: 'OTP expired or not found.' });
-    if (otpDoc.used) return res.status(400).json({ message: 'OTP already used.' });
-    if (otpDoc.expiresAt < new Date()) return res.status(400).json({ message: 'OTP expired.' });
+    const otpDoc = await EmailOtp.findOne({
+      _id: otpId,
+      purpose: 'login_mfa',
+      used: false,
+    });
+    if (!otpDoc) return res.status(400).json({ message: 'OTP expired or invalid.' });
+    if (otpDoc.expiresAt < new Date()) return res.status(400).json({ message: 'OTP expired.' });    
 
     if (otpDoc.purpose !== 'login_mfa') {
       return res.status(400).json({ message: 'Invalid OTP purpose.' });
@@ -247,6 +256,12 @@ const resendLoginOtp = async (req, res) => {
 
     const cooldown = await enforceCooldown(cleanEmail, purpose, 'Please wait');
     if (cooldown.blocked) return res.status(429).json({ message: cooldown.message });
+
+    await EmailOtp.updateMany({ 
+      email: cleanEmail, 
+        purpose: 'login_mfa', 
+        used: false },{ used: true }
+    );
 
     const code = makeOtpCode();
     const codeHash = await bcrypt.hash(code, 10);
@@ -326,7 +341,6 @@ const changePassword = async (req, res) => {
   }
 };
 
-
 const requestEmailOtp = async (req, res) => {
   try {
     const { email, purpose } = req.body;
@@ -340,6 +354,12 @@ const requestEmailOtp = async (req, res) => {
 
     const cooldown = await enforceCooldown(cleanEmail, realPurpose, 'Please wait');
     if (cooldown.blocked) return res.status(429).json({ message: cooldown.message });
+
+    await EmailOtp.updateMany({ 
+      email: cleanEmail, 
+      purpose: realPurpose, 
+      used: false }, { used: true }
+    );
 
     const code = makeOtpCode();
     const codeHash = await bcrypt.hash(code, 10);
@@ -505,6 +525,12 @@ const requestPasswordResetOtp = async (req, res) => {
     const cooldown = await enforceCooldown(cleanEmail, purpose, 'Please wait');
     if (cooldown.blocked) return res.status(429).json({ message: cooldown.message });
 
+    await EmailOtp.updateMany({ 
+      email: cleanEmail, 
+      purpose, 
+      used: false }, { used: true }
+    );
+
     const code = makeOtpCode();
     const codeHash = await bcrypt.hash(code, 10);
     const expiresAt = new Date(Date.now() + OTP_EXP_MINUTES * 60 * 1000);
@@ -547,6 +573,12 @@ const resendPasswordResetOtp = async (req, res) => {
     const cooldown = await enforceCooldown(cleanEmail, purpose, 'Please wait');
     if (cooldown.blocked) return res.status(429).json({ message: cooldown.message });
 
+    await EmailOtp.updateMany({ 
+      email: cleanEmail, 
+      purpose, 
+      used: false }, { used: true }
+    );
+
     const code = makeOtpCode();
     const codeHash = await bcrypt.hash(code, 10);
     const expiresAt = new Date(Date.now() + OTP_EXP_MINUTES * 60 * 1000);
@@ -577,49 +609,64 @@ const resendPasswordResetOtp = async (req, res) => {
 
 const verifyPasswordResetOtp = async (req, res) => {
   try {
-    const { otpId, code, newPassword } = req.body;
+    const { otpId, code } = req.body;
 
     if (!otpId || !code) {
       return res.status(400).json({ message: 'otpId and code are required' });
     }
 
-    const otpDoc = await EmailOtp.findById(otpId);
+    const otpDoc = await EmailOtp.findOne({
+      _id: otpId,
+      purpose: 'reset_password',
+      used: false
+    });
+
     if (!otpDoc) return res.status(400).json({ message: 'OTP expired or invalid.' });
     if (otpDoc.expiresAt < new Date()) return res.status(400).json({ message: 'OTP expired.' });
-
-    if (otpDoc.purpose !== 'reset_password') {
-      return res.status(400).json({ message: 'Invalid OTP purpose.' });
-    }
-
-    if (otpDoc.used) {
-      return res.status(400).json({ message: 'OTP already used.' });
-    }
-
-    if (otpDoc.attempts >= otpDoc.maxAttempts) {
-      return res.status(429).json({ message: 'Too many attempts. Please resend code.' });
-    }
+    if (otpDoc.attempts >= otpDoc.maxAttempts) return res.status(429).json({ message: 'Too many attempts. Please resend code.' });
 
     const isValid = await bcrypt.compare(String(code).trim(), otpDoc.codeHash);
     if (!isValid) {
       otpDoc.attempts += 1;
       await otpDoc.save();
-      return res.status(400).json({
-        message: `Invalid code. Attempts left: ${otpDoc.maxAttempts - otpDoc.attempts}`,
-      });
+      return res.status(400).json({ message: `Invalid code. Attempts left: ${otpDoc.maxAttempts - otpDoc.attempts}` });
     }
 
-    // verify-only mode
-    if (!newPassword) {
-      return res.json({ message: 'OTP verified' });
+    return res.json({ message: 'OTP verified' });
+
+  } catch (err) {
+    console.error('verifyPasswordResetOtp error:', err);
+    return res.status(500).json({ message: 'OTP verification failed' });
+  }
+};
+
+const resetPasswordWithOtp = async (req, res) => {
+  try {
+    const { otpId, code, newPassword } = req.body;
+
+    if (!otpId || !code || !newPassword) {
+      return res.status(400).json({ message: 'otpId, code, and newPassword are required' });
     }
 
-    if (newPassword.length < 8) {
-      return res.status(400).json({ message: 'New password must be at least 8 characters long' });
+    const otpDoc = await EmailOtp.findOne({
+      _id: otpId,
+      purpose: 'reset_password',
+      used: false
+    });
+
+    if (!otpDoc) return res.status(400).json({ message: 'OTP expired or invalid.' });
+    if (otpDoc.expiresAt < new Date()) return res.status(400).json({ message: 'OTP expired.' });
+    if (otpDoc.attempts >= otpDoc.maxAttempts) return res.status(429).json({ message: 'Too many attempts. Please resend code.' });
+
+    const isValid = await bcrypt.compare(String(code).trim(), otpDoc.codeHash);
+    if (!isValid) {
+      otpDoc.attempts += 1;
+      await otpDoc.save();
+      return res.status(400).json({ message: `Invalid code. Attempts left: ${otpDoc.maxAttempts - otpDoc.attempts}` });
     }
-    const specialCharRegex = /[!@#$%^&*]/;
-    if (!specialCharRegex.test(newPassword)) {
-      return res.status(400).json({ message: 'New password must contain at least one special character' });
-    }
+
+    if (newPassword.length < 8) return res.status(400).json({ message: 'New password must be at least 8 characters long' });
+    if (!/[!@#$%^&*]/.test(newPassword)) return res.status(400).json({ message: 'New password must contain at least one special character' });
 
     otpDoc.used = true;
     await otpDoc.save();
@@ -629,28 +676,27 @@ const verifyPasswordResetOtp = async (req, res) => {
 
     const salt = await bcrypt.genSalt(10);
     user.password = await bcrypt.hash(newPassword, salt);
+    user.mustChangePassword = false;
     await user.save();
 
-    try {
-      await AuditLog.create({
-        action: 'Password Reset',
-        targetUser: user._id,
-        targetEmail: user.email,
-        actorUser: user._id,
-        actorName: `${user.fname || ''} ${user.lname || ''}`.trim(),
-        actorRole: user.role || 'user',
-        details: 'User reset password via email OTP',
-      });
-    } catch (logErr) {
-      console.error('AuditLog(Password Reset) error:', logErr);
-    }
+    await AuditLog.create({
+      action: 'Password Reset',
+      targetUser: user._id,
+      targetEmail: user.email,
+      actorUser: user._id,
+      actorName: `${user.fname || ''} ${user.lname || ''}`.trim(),
+      actorRole: user.role || 'user',
+      details: 'User reset password via email OTP',
+    });
 
     return res.json({ message: 'Password reset successful' });
+
   } catch (err) {
-    console.error('verifyPasswordResetOtp error:', err);
+    console.error('resetPasswordWithOtp error:', err);
     return res.status(500).json({ message: 'Password reset failed' });
   }
 };
+
 
 module.exports = {
   login,
@@ -666,4 +712,5 @@ module.exports = {
   requestPasswordResetOtp,
   resendPasswordResetOtp,
   verifyPasswordResetOtp,
+  resetPasswordWithOtp,
 };
