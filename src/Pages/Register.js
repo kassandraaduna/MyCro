@@ -2,8 +2,14 @@ import React, { useEffect, useMemo, useState } from 'react';
 import axios from 'axios';
 import { useLocation, useNavigate } from 'react-router-dom';
 import './Register.css';
+import Toast from '../Components/Toast'
 
 function Register({ isModal = false, onClose, onSwitchToLogin }) {
+  const [toast, setToast] = useState('');
+  const [errors, setErrors] = useState({});
+  const [otpError, setOtpError] = useState('');
+  const [touched, setTouched] = useState({});
+
   const [newMed, setNewMed] = useState({
     fname: "",
     lname: "",
@@ -51,127 +57,60 @@ function Register({ isModal = false, onClose, onSwitchToLogin }) {
 
   const handleChange = (field) => (e) => {
     let val = e.target.value;
+  
+    if (field === 'fname' || field === 'lname') val = sanitizeName(val);
+    if (field === 'number') val = sanitizePhone(val);
+  
+    setNewMed(prev => ({ ...prev, [field]: val }));
+    setTouched(prev => ({ ...prev, [field]: true }));
+  
+    const fieldErrors = validate({ ...newMed, [field]: val });
+    setErrors(fieldErrors);
+  };  
 
-    if (field === 'fname' || field === 'lname') {
-      val = sanitizeName(val);
-    }
+  // const computeAge = (dobStr) => {
+  //   const dobDate = new Date(dobStr);
+  //   if (Number.isNaN(dobDate.getTime())) return null;
 
-    if (field === 'number') {
-      val = sanitizePhone(val);
-    }
+  // const today = new Date();
+  //   let age = today.getFullYear() - dobDate.getFullYear();
+  //   const m = today.getMonth() - dobDate.getMonth();
+  //   if (m < 0 || (m === 0 && today.getDate() < dobDate.getDate())) age -= 1;
+  //   return age;
+  // };
 
-    setNewMed((prev) => ({
-      ...prev,
-      [field]: val
-    }));
-  };
-
-  const computeAge = (dobStr) => {
-    const dobDate = new Date(dobStr);
-    if (Number.isNaN(dobDate.getTime())) return null;
-
-    const today = new Date();
-    let age = today.getFullYear() - dobDate.getFullYear();
-    const m = today.getMonth() - dobDate.getMonth();
-    if (m < 0 || (m === 0 && today.getDate() < dobDate.getDate())) age -= 1;
-    return age;
-  };
-
-  const validate = () => {
-    const {
-      fname,
-      lname,
-      dob,
-      gender,
-      number,
-      email,
-      username,
-      password,
-      confirmPassword
-    } = newMed;
-
-    const trimmedFname = fname.trim();
-    const trimmedLname = lname.trim();
-    const trimmedEmail = email.trim();
-    const trimmedUsername = username.trim();
-    const trimmedGender = gender.trim();
-    const trimmedNumber = number.trim();
-
-    if (
-      !trimmedFname ||
-      !trimmedLname ||
-      !dob ||
-      !trimmedGender ||
-      !trimmedNumber ||
-      !trimmedEmail ||
-      !trimmedUsername ||
-      !password ||
-      !confirmPassword
-    ) {
-      return 'Please fill all required fields.';
-    }
-
+  const validate = (data = newMed) => {
+    const errors = {};
+    const { fname, lname, dob, gender, number, email, username, password, confirmPassword } = data;
+  
     const nameRegex = /^[A-Za-z]+(?:[ \-'][A-Za-z]+)*$/;
-    if (!nameRegex.test(trimmedFname)) {
-      return "First Name must contain letters only (spaces, hyphen '-', apostrophe ' allowed).";
-    }
-    if (!nameRegex.test(trimmedLname)) {
-      return "Last Name must contain letters only (spaces, hyphen '-', apostrophe ' allowed).";
-    }
-
     const dobDate = new Date(dob);
-    if (Number.isNaN(dobDate.getTime())) {
-      return 'Please enter a valid Date of Birth.';
-    }
-
     const today = new Date();
-    const today0 = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-    const dob0 = new Date(dobDate.getFullYear(), dobDate.getMonth(), dobDate.getDate());
-
-    if (dob0 > today0) {
-      return 'Date of Birth cannot be in the future.';
-    }
-
-    const age = computeAge(dob);
-    if (age === null) return 'Please enter a valid Date of Birth.';
-    if (age < 18) return 'You must be at least 18 years old to register.';
-
-    const allowedGenders = ['Male', 'Female', 'Other', 'Prefer not to say'];
-    if (!allowedGenders.includes(trimmedGender)) {
-      return 'Please select a valid gender.';
-    }
-
-    const phoneDigits = trimmedNumber.replace(/\D/g, '');
-    if (phoneDigits !== trimmedNumber) {
-      return 'Phone number must contain numbers only.';
-    }
-    if (phoneDigits.length !== 11) {
-      return 'Phone number must be exactly 11 digits.';
-    }
-
+    //const age = computeAge(dob);
+    const phoneDigits = number.replace(/\D/g, '');
     const emailRegex = /@gmail\.com$/;
-    if (!emailRegex.test(trimmedEmail)) {
-      return 'Please enter a valid email address.';
-    }
-
-    if (trimmedUsername.length < 8) {
-      return 'Username must be at least 8 characters long.';
-    }
-
-    if (password.length < 8) {
-      return 'Password must be at least 8 characters long.';
-    }
-
     const specialCharRegex = /[!@#$%^&*]/;
-    if (!specialCharRegex.test(password)) {
-      return 'Password must contain at least one special character.';
+    const allowedGenders = ['Male', 'Female', 'Others', 'Prefer not to say'];
+  
+    if (!fname || !nameRegex.test(fname)) errors.fname = "First Name cannot be empty.";
+    if (!lname || !nameRegex.test(lname)) errors.lname = "Last Name cannot be empty.";
+    if (!dob || Number.isNaN(dobDate.getTime())) errors.dob = "Please enter a valid Date of Birth.";
+    if (dobDate > today) errors.dob = "Date of Birth cannot be in the future.";
+    // if (age !== null && age < 18) errors.dob = "You must be at least 18 years old to register.";
+    if (!allowedGenders.includes(gender)) errors.gender = "Please select a valid gender.";
+    if (!number || phoneDigits !== number) errors.number = "Mobile number must contain numbers only.";
+    if (number && phoneDigits.length !== 11) errors.number = "Mobile number must be exactly 11 digits.";
+    if (!email || !emailRegex.test(email)) errors.email = "Please enter a valid email address.";
+    if (!username || username.length < 8) errors.username = "Username must be at least 8 characters long.";
+    if (!password || password.length < 8) errors.password = "Password must be at least 8 characters long.";
+    if (password && !specialCharRegex.test(password)) errors.password = "Password must contain at least one special character.";
+    if (password !== confirmPassword) errors.confirmPassword = "Passwords do not match.";
+  
+    if (!fname || !lname || !dob || !gender || !number || !email || !username || !password || !confirmPassword) {
+      errors.form = "Please fill in all fields.";
     }
 
-    if (password !== confirmPassword) {
-      return 'Passwords do not match.';
-    }
-
-    return null;
+    return errors;
   };
 
   const medData = useMemo(() => ({
@@ -192,9 +131,9 @@ function Register({ isModal = false, onClose, onSwitchToLogin }) {
       return;
     }
 
-    const errorMsg = validate();
-    if (errorMsg) {
-      alert(errorMsg);
+    const fieldErrors = validate();
+    if (Object.keys(fieldErrors).length > 0) {
+      setErrors(fieldErrors);
       return;
     }
 
@@ -219,7 +158,7 @@ function Register({ isModal = false, onClose, onSwitchToLogin }) {
         error?.response?.data?.message ||
         error?.response?.data?.error ||
         'Failed to send verification code.';
-      alert(msg);
+        setToast(msg);
     } finally {
       setIsSubmitting(false);
     }
@@ -233,11 +172,11 @@ function Register({ isModal = false, onClose, onSwitchToLogin }) {
 
   const handleVerifyAndRegister = async () => {
     if (!otp.trim()) {
-      alert('Please enter the verification code.');
+      setOtpError('Please enter the verification code.');
       return;
     }
     if (!otpMeta.otpId) {
-      alert('Missing OTP session. Please resend code.');
+      setToast('Missing OTP session. Please resend code.');
       return;
     }
 
@@ -270,7 +209,7 @@ function Register({ isModal = false, onClose, onSwitchToLogin }) {
       setDisclaimerAccepted(false);
       setAgree(false);
 
-      alert("Account registered successfully!");
+      setToast('Account registered successfully!');
 
       if (isModal && onSwitchToLogin) {
         onSwitchToLogin();
@@ -283,7 +222,7 @@ function Register({ isModal = false, onClose, onSwitchToLogin }) {
         error?.response?.data?.message ||
         error?.response?.data?.error ||
         'Verification failed. Please try again.';
-      alert(msg);
+        setToast(msg);
     } finally {
       setIsSubmitting(false);
     }
@@ -304,13 +243,13 @@ function Register({ isModal = false, onClose, onSwitchToLogin }) {
       });
 
       setMaskedEmail(res.data?.maskedEmail || medData.email);
-      alert('Verification code resent!');
+      setToast('Verification code resent!');
     } catch (error) {
       const msg =
         error?.response?.data?.message ||
         error?.response?.data?.error ||
         'Failed to resend code.';
-      alert(msg);
+        setToast(msg);
     } finally {
       setIsSubmitting(false);
     }
@@ -324,14 +263,15 @@ function Register({ isModal = false, onClose, onSwitchToLogin }) {
     navigate('/Login');
   };
 
-  const ageHint = useMemo(() => {
-    if (!newMed.dob) return '';
-    const age = computeAge(newMed.dob);
-    if (age === null) return '';
-    return age < 18 ? `Age: ${age} (must be 18+)` : `Age: ${age}`;
-  }, [newMed.dob]);
+  // const ageHint = useMemo(() => {
+  //   if (!newMed.dob) return '';
+  //   const age = computeAge(newMed.dob);
+  //   if (age === null) return '';
+  //   return age < 18 ? `Age: ${age} (must be 18+)` : `Age: ${age}`;
+  // }, [newMed.dob]);
 
   return (
+    <>
     <div className={isModal ? 'authModalBody' : 'theBody'}>
       <div className={isModal ? 'authModalCardInner' : 'regMainCont'} >
 
@@ -347,6 +287,7 @@ function Register({ isModal = false, onClose, onSwitchToLogin }) {
                 value={newMed.fname}
                 onChange={handleChange('fname')}
               />
+              {touched.fname && errors.fname && <div className="fieldError">{errors.fname}</div>}
 
               <input
                 type="text"
@@ -354,6 +295,7 @@ function Register({ isModal = false, onClose, onSwitchToLogin }) {
                 value={newMed.lname}
                 onChange={handleChange('lname')}
               />
+              {touched.lname && errors.lname && <div className="fieldError">{errors.lname}</div>}
 
               <input
                 type="date"
@@ -361,11 +303,12 @@ function Register({ isModal = false, onClose, onSwitchToLogin }) {
                 value={newMed.dob}
                 onChange={handleChange('dob')}
               />
-              {ageHint ? (
+              {touched.dob && errors.dob && <div className="fieldError">{errors.dob}</div>}
+              {/* {ageHint ? (
                 <div style={{ fontSize: 12, fontWeight: 800, color: ageHint.includes('must be 18+') ? '#b00020' : '#1b5e20' }}>
                   {ageHint}
                 </div>
-              ) : null}
+              ) : null} */}
 
               <select
                 value={newMed.gender}
@@ -377,6 +320,7 @@ function Register({ isModal = false, onClose, onSwitchToLogin }) {
                 <option value="Female">Female</option>
                 <option value="Prefer not to say">Prefer not to say</option>
               </select>
+              {touched.gender && errors.gender && <div className="fieldError">{errors.gender}</div>}
 
               <input
                 type="text"
@@ -386,6 +330,7 @@ function Register({ isModal = false, onClose, onSwitchToLogin }) {
                 onChange={handleChange('number')}
                 maxLength={11}
               />
+              {touched.number && errors.number && <div className="fieldError">{errors.number}</div>}
 
               <input
                 type="email"
@@ -393,6 +338,7 @@ function Register({ isModal = false, onClose, onSwitchToLogin }) {
                 value={newMed.email}
                 onChange={handleChange('email')}
               />
+              {touched.email && errors.email && <div className="fieldError">{errors.email}</div>}
 
               <input
                 type="text"
@@ -400,6 +346,7 @@ function Register({ isModal = false, onClose, onSwitchToLogin }) {
                 value={newMed.username}
                 onChange={handleChange('username')}
               />
+              {touched.username && errors.username && <div className="fieldError">{errors.username}</div>}
 
               <input
                 type="password"
@@ -407,6 +354,7 @@ function Register({ isModal = false, onClose, onSwitchToLogin }) {
                 value={newMed.password}
                 onChange={handleChange('password')}
               />
+              {touched.password && errors.password && <div className="fieldError">{errors.password}</div>}
 
               <input
                 type="password"
@@ -414,6 +362,7 @@ function Register({ isModal = false, onClose, onSwitchToLogin }) {
                 value={newMed.confirmPassword}
                 onChange={handleChange('confirmPassword')}
               />
+              {touched.confirmPassword && errors.confirmPassword && <div className="fieldError">{errors.confirmPassword}</div>}
             </div>
 
             <button
@@ -422,8 +371,9 @@ function Register({ isModal = false, onClose, onSwitchToLogin }) {
               onClick={handleCreateMed}
               disabled={isSubmitting}
             >
-              {isSubmitting ? 'SENDING CODE...' : 'SIGN-UP'}
+              {isSubmitting ? 'VERIFYING...' : 'SIGN-UP'}
             </button>
+            {errors.form && <div className="formError">{errors.form}</div>}
 
             <button
               type="button"
@@ -525,6 +475,7 @@ function Register({ isModal = false, onClose, onSwitchToLogin }) {
                 onChange={(e) => setOtp(e.target.value)}
                 inputMode="numeric"
               />
+              {otpError && <div className="fieldError">{otpError}</div>}
             </div>
 
             <button
@@ -533,7 +484,7 @@ function Register({ isModal = false, onClose, onSwitchToLogin }) {
               onClick={handleVerifyAndRegister}
               disabled={isSubmitting}
             >
-              {isSubmitting ? 'VERIFYING...' : 'Continue'}
+              {isSubmitting ? 'VERIFYING...' : 'Verify'}
             </button>
 
             <button
@@ -549,6 +500,8 @@ function Register({ isModal = false, onClose, onSwitchToLogin }) {
         )}
       </div>
     </div>
+    <Toast message={toast} onClose={() => setToast('')} />
+    </>
   );
 }
 

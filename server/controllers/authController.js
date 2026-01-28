@@ -584,7 +584,7 @@ const verifyPasswordResetOtp = async (req, res) => {
     }
 
     const otpDoc = await EmailOtp.findById(otpId);
-    if (!otpDoc) return res.status(400).json({ message: 'OTP expired or not found.' });
+    if (!otpDoc) return res.status(400).json({ message: 'OTP expired or invalid.' });
     if (otpDoc.expiresAt < new Date()) return res.status(400).json({ message: 'OTP expired.' });
 
     if (otpDoc.purpose !== 'reset_password') {

@@ -46,11 +46,6 @@ function LandingPage() {
             <span className="lpBrandText">MyphoLens</span>
           </div>
 
-          <div className="lpSearchWrap">
-            <span className="lpSearchIcon">⌕</span>
-            <input className="lpSearch" type="text" placeholder="Search Mycology Topics" />
-          </div>
-
           <div className="lpTopActions">
             <button type="button" className="lpLinkBtn" onClick={openLogin}>
               SIGN IN

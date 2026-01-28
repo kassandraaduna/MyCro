@@ -2,8 +2,10 @@ import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import './Login.css';
+import toast from '../Components/Toast'
 
 function Login({ isModal = false, onClose, onSwitchToRegister }) {
+  const [toast, setToast] = useState ('');
   const [usernameOrEmail, setUsernameOrEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -113,7 +115,8 @@ function Login({ isModal = false, onClose, onSwitchToRegister }) {
         return;
       }
 
-      alert(res.data?.message || 'Login successful');
+      setToast(res.data?.message || 'Login successful');
+      console.log('toast set');
 
       const token = res.data?.data?.token;
       if (token) localStorage.setItem('token', token);
@@ -153,7 +156,7 @@ function Login({ isModal = false, onClose, onSwitchToRegister }) {
         code: loginOtp.trim(),
       });
 
-      alert(res.data?.message || 'Login successful');
+      setToast(res.data?.message || 'Login successful');
 
       const token = res.data?.data?.token;
       if (token) localStorage.setItem('token', token);
@@ -209,7 +212,7 @@ function Login({ isModal = false, onClose, onSwitchToRegister }) {
       setLoginMaskedEmail(res.data?.maskedEmail || loginMaskedEmail);
       setLoginEmail(res.data?.email || loginEmail);
 
-      alert('Verification code resent!');
+      setToast('Verification code resent!');
       setResendTimer(60);
     } catch (error) {
       const msg =
@@ -324,7 +327,7 @@ function Login({ isModal = false, onClose, onSwitchToRegister }) {
       });
 
       setMaskedEmail(res.data?.maskedEmail || email);
-      alert('Reset code resent!');
+      setToast('Reset code resent!');
       setResendTimer(60);
     } catch (error) {
       const msg =
@@ -388,7 +391,7 @@ function Login({ isModal = false, onClose, onSwitchToRegister }) {
         newPassword,
       });
 
-      alert('Password changed successfully! You can login now.');
+      setToast('Password changed successfully! You can login now.');
 
       setStep('login');
       setResetStage('otp');

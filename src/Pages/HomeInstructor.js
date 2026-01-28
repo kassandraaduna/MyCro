@@ -2,8 +2,10 @@ import React, { useEffect, useMemo, useState } from 'react';
 import axios from 'axios';
 import { useLocation, useNavigate } from 'react-router-dom';
 import './HomeInstructor.css';
+import toast from '../Components/Toast'
 
 function HomeInstructor() {
+  const [toast, setToast] = useState('');
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -89,10 +91,12 @@ function HomeInstructor() {
   }, [user]);
 
   const handleLogout = () => {
+    if (!window.confirm('Are you sure you want to logout?')) return;
     localStorage.removeItem('token');
     localStorage.removeItem('user');
     navigate('/Login');
   };
+  
 
   const handleSearch = (e) => e.preventDefault();
 
@@ -107,11 +111,11 @@ function HomeInstructor() {
     if (!file) return;
 
     if (!file.type.startsWith('image/')) {
-      alert('Please select an image file.');
+      setToast('Please select an image file.');
       return;
     }
     if (file.size > 3 * 1024 * 1024) {
-      alert('Image is too large. Max 3MB.');
+      setToast('Image is too large. Max 3MB.');
       return;
     }
 
@@ -121,7 +125,7 @@ function HomeInstructor() {
   // ✅ SAME endpoint pattern as student (adjust if your route is different)
   const putUpdate = async (payload) => {
     if (!userId) {
-      alert('Walang userId. Mag-login ulit.');
+      setToast('Walang userId. Mag-login ulit.');
       navigate('/Login');
       return null;
     }
@@ -139,7 +143,7 @@ function HomeInstructor() {
 
   const validateNumber = (number) => {
     const digits = number.replace(/[^\d]/g, '');
-    if (digits.length < 7 || digits.length > 15) return 'Phone number must be 7–15 digits.';
+    if (digits.length === 11) return 'Enter 11-digit mobile number.';
     return null;
   };
 
@@ -165,9 +169,9 @@ function HomeInstructor() {
       localStorage.setItem('user', JSON.stringify(updated));
       setUser(updated);
       setEditName(false);
-      alert('Name updated!');
+      setToast('Name updated!');
     } catch (e) {
-      alert(e?.response?.data?.message || 'Failed to update name.');
+      setToast(e?.response?.data?.message || 'Failed to update name.');
     } finally {
       setSavingKey('');
     }
@@ -175,7 +179,7 @@ function HomeInstructor() {
 
   const saveEmail = async () => {
     const err = validateEmail(draft.email);
-    if (err) return alert(err);
+    if (err) return setToast(err);
 
     try {
       setSavingKey('email');
@@ -185,9 +189,9 @@ function HomeInstructor() {
       localStorage.setItem('user', JSON.stringify(updated));
       setUser(updated);
       setEditEmail(false);
-      alert('Email updated!');
+      setToast('Email updated!');
     } catch (e) {
-      alert(e?.response?.data?.message || 'Failed to update email.');
+      setToast(e?.response?.data?.message || 'Failed to update email.');
     } finally {
       setSavingKey('');
     }
@@ -195,7 +199,7 @@ function HomeInstructor() {
 
   const saveNumber = async () => {
     const err = validateNumber(draft.number);
-    if (err) return alert(err);
+    if (err) return setToast(err);
 
     try {
       setSavingKey('number');
@@ -205,9 +209,9 @@ function HomeInstructor() {
       localStorage.setItem('user', JSON.stringify(updated));
       setUser(updated);
       setEditNumber(false);
-      alert('Number updated!');
+      setToast('Number updated!');
     } catch (e) {
-      alert(e?.response?.data?.message || 'Failed to update number.');
+      setToast(e?.response?.data?.message || 'Failed to update number.');
     } finally {
       setSavingKey('');
     }
@@ -215,7 +219,7 @@ function HomeInstructor() {
 
   const savePassword = async () => {
     const err = validatePassword();
-    if (err) return alert(err);
+    if (err) return setToast(err);
 
     try {
       setSavingKey('password');
@@ -228,9 +232,9 @@ function HomeInstructor() {
 
       setPassDraft({ currentPassword: '', newPassword: '', confirmNewPassword: '' });
       setEditPassword(false);
-      alert('Password updated securely!');
+      setToast('Password updated!');
     } catch (error) {
-      alert(error?.response?.data?.message || 'Failed to update password.');
+      setToast(error?.response?.data?.message || 'Failed to update password.');
     } finally {
       setSavingKey('');
     }
@@ -249,7 +253,7 @@ function HomeInstructor() {
   const renderEducationalContent = () => (
     <div className="hiCard">
       <div className="hiCardHead">
-        <div className="hiCardTitle">Educational Content</div>
+        <div className="hiCardTitle">Manage Educational Content</div>
         <div className="hiCardSub">Content placeholder</div>
       </div>
     </div>
@@ -258,7 +262,7 @@ function HomeInstructor() {
   const renderAssessment = () => (
     <div className="hiCard">
       <div className="hiCardHead">
-        <div className="hiCardTitle">Assessment</div>
+        <div className="hiCardTitle">Manage Assessments</div>
         <div className="hiCardSub">Content placeholder</div>
       </div>
     </div>
@@ -267,7 +271,16 @@ function HomeInstructor() {
   const renderModelLibrary = () => (
     <div className="hiCard">
       <div className="hiCardHead">
-        <div className="hiCardTitle">Model Library</div>
+        <div className="hiCardTitle">Manage Model Library</div>
+        <div className="hiCardSub">Content placeholder</div>
+      </div>
+    </div>
+  );
+
+  const renderMonitoringAndManagement = () => (
+    <div className="hiCard">
+      <div className="hiCardHead">
+        <div className="hiCardTitle">Student Performance Monitoring and Management</div>
         <div className="hiCardSub">Content placeholder</div>
       </div>
     </div>
@@ -419,6 +432,7 @@ function HomeInstructor() {
     if (active === 'Educational Content') return renderEducationalContent();
     if (active === 'Assessment') return renderAssessment();
     if (active === 'Model Library') return renderModelLibrary();
+    if (active === 'Student Monitoring and Management') return renderMonitoringAndManagement();
     if (active === 'Profile') return renderProfile();
     return renderDashboard();
   };
@@ -466,6 +480,15 @@ function HomeInstructor() {
             >
               <span className="hiDot" />
               Model Library
+            </button>
+
+            <button
+              type="button"
+              className={`hiNavBtn ${active === 'Student Monitoring and Management' ? 'active' : ''}`}
+              onClick={() => setActive('Student Monitoring and Management')}
+            >
+              <span className="hiDot" />
+              Student Monitoring & Management
             </button>
 
             <button

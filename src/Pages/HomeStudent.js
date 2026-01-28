@@ -139,7 +139,7 @@ function HomePageStudent() {
 
   const validateNumber = (number) => {
     const digits = number.replace(/[^\d]/g, '');
-    if (digits.length < 7 || digits.length > 15) return 'Phone number must be 7–15 digits.';
+    if (digits.length === 11) return 'Enter 11-digit mobile number.';
     return null;
   };
 
