@@ -88,9 +88,10 @@ function HomePageStudent() {
   }, [user]);
 
   const handleLogout = () => {
+    if (!window.confirm('Are you sure you want to logout?')) return;
     localStorage.removeItem('token');
     localStorage.removeItem('user');
-    navigate('/Login');
+    navigate('/Landing');
   };
 
   const handleSearch = (e) => {
@@ -249,6 +250,15 @@ function HomePageStudent() {
     <div className="hpCard">
       <div className="hpCardHead">
         <div className="hpCardTitle">Learn</div>
+        <div className="hpCardSub">Content placeholder</div>
+      </div>
+    </div>
+  );
+
+  const renderAssesment = () => (
+    <div className="hpCard">
+      <div className="hpCardHead">
+        <div className="hpCardTitle">Assesment</div>
         <div className="hpCardSub">Content placeholder</div>
       </div>
     </div>
@@ -416,6 +426,7 @@ function HomePageStudent() {
   const renderMain = () => {
     if (active === 'Dashboard') return renderDashboard();
     if (active === 'Learn') return renderLearn();
+    if (active === 'Assesment') return renderAssesment();
     if (active === 'AI Scanner') return renderScanner();
     if (active === 'Progress & Performance') return renderProgress();
     if (active === 'Profile') return renderProfile();
@@ -447,6 +458,15 @@ function HomePageStudent() {
             >
               <span className="hpDot" />
               Learn
+            </button>
+
+            <button
+              type="button"
+              className={`hpNavBtn ${active === 'Assesment' ? 'active' : ''}`}
+              onClick={() => setActive('Assesment')}
+            >
+              <span className="hpDot" />
+              Assesment
             </button>
 
             <button

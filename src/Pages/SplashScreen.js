@@ -17,7 +17,7 @@ function SplashScreen() {
     return (
         <div className="splashBody">
             <div className="splashContent">
-                <h1 className="splashTitle">WAITLANG</h1>
+                <h1 className="splashTitle">MyphoLens</h1>
                 <p className="splashSub">Loading...</p>
             </div>
         </div>
