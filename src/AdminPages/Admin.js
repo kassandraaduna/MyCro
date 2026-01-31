@@ -73,7 +73,7 @@ function Admin() {
   const handleLogout = () => {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
-    navigate('/Login');
+    navigate('/Landing');
   };
 
   const handleNav = (name) => setActive(name);

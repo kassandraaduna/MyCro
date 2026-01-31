@@ -94,7 +94,7 @@ function HomeInstructor() {
     if (!window.confirm('Are you sure you want to logout?')) return;
     localStorage.removeItem('token');
     localStorage.removeItem('user');
-    navigate('/Login');
+    navigate('/Landing');
   };
   
 

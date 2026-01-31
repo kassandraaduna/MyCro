@@ -10,12 +10,10 @@
   background: #ffffff;
 }
 
-/* ✅ prevent body scroll when modal open */
 .lpNoScroll {
   overflow: hidden;
 }
 
-/* ✅ wrapper for blur */
 .lpBackdrop.blurred {
   filter: blur(8px);
   transform: scale(1.01);
@@ -189,7 +187,6 @@
   top: 280px;
 }
 
-/* ✅ MODAL OVERLAY */
 .lpModalOverlay {
   position: fixed;
   inset: 0;
@@ -230,7 +227,6 @@
   background: rgba(255,255,255,0.95);
 }
 
-/* ✅ make Login/Register fit inside modal without fullscreen */
 .authModalBody {
   width: 100%;
   background: transparent;
