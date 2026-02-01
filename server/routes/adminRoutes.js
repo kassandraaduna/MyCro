@@ -22,7 +22,6 @@ router.get('/users', async (req, res) => {
   }
 });
 
-// create Instructor Account 
 router.post('/instructors', async (req, res) => {
   try {
     const {
@@ -39,7 +38,6 @@ router.post('/instructors', async (req, res) => {
 
     const actor = getActor(req);
 
-    // basic validation
     if (!fname || !lname || !dob || !gender || !number || !username || !email || !tempPassword) {
       return res.status(400).json({
         message:
@@ -50,7 +48,6 @@ router.post('/instructors', async (req, res) => {
     const cleanEmail = String(email).trim().toLowerCase();
     const cleanUsername = String(username).trim();
 
-    // duplicates
     const existing = await User.findOne({
       $or: [{ email: cleanEmail }, { username: cleanUsername }],
     }).lean();
@@ -59,7 +56,6 @@ router.post('/instructors', async (req, res) => {
       return res.status(409).json({ message: 'Email or username already exists.' });
     }
 
-    // password rules (match your frontend rule)
     if (String(tempPassword).length < 8) {
       return res.status(400).json({ message: 'Temp password must be at least 8 characters long' });
     }
@@ -86,6 +82,9 @@ router.post('/instructors', async (req, res) => {
       passwordTemp: true,
 
       mfaLastVerifiedAt: null,
+
+      failedLoginAttempts: 0,
+      lastFailedLoginAt: null,
     });
 
     await AuditLog.create({
@@ -141,7 +140,13 @@ router.put('/users/:id/status', async (req, res) => {
   try {
     const { active, details } = req.body;
 
-    const user = await User.findByIdAndUpdate(req.params.id, { active }, { new: true });
+    const update = { active: !!active };
+    if (active === true) {
+      update.failedLoginAttempts = 0;
+      update.lastFailedLoginAt = null;
+    }
+
+    const user = await User.findByIdAndUpdate(req.params.id, update, { new: true });
 
     if (!user) return res.status(404).json({ message: 'User not found' });
 
@@ -155,7 +160,7 @@ router.put('/users/:id/status', async (req, res) => {
       details:
         details ||
         (active
-          ? `Activated user account: ${user.email}`
+          ? `Activated user account: ${user.email} (attempts reset)`
           : `Deactivated user account: ${user.email}`),
     });
 

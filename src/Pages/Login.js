@@ -130,8 +130,15 @@ function Login({ isModal = false, onClose, onSwitchToRegister }) {
 
       routeAfterLogin(user);
     } catch (error) {
-      const msg = error?.response?.data?.message || 'Login failed. Please try again.';
-      setFormError(msg);
+      const status = error?.response?.status;
+      const data = error?.response?.data || {};
+      const msg = data?.message || 'Login failed. Please try again.';
+
+      if (status === 401 && typeof data.attemptsLeft === 'number') {
+        setFormError(`${msg} (Attempts left: ${data.attemptsLeft})`);
+      } else {
+        setFormError(msg);
+      }
     } finally {
       setIsLoading(false);
     }
@@ -489,21 +496,20 @@ function Login({ isModal = false, onClose, onSwitchToRegister }) {
 
             {formError ? <div className="formError">{formError}</div> : null}
             <div>
-            <button
-              type="button"
-              className="registerTextBtn"
-              onClick={goForgot}
-              disabled={isLoading}
-              style={{ marginTop: 10}}
-            >
-              Forgot password?
-            </button>
+              <button
+                type="button"
+                className="registerTextBtn"
+                onClick={goForgot}
+                disabled={isLoading}
+                style={{ marginTop: 10}}
+              >
+                Forgot password?
+              </button>
             </div>
 
             <button type="button" className="registerTextBtn" onClick={handleRegister} disabled={isLoading}>
               Haven&apos;t registered yet? Sign-up here.
             </button>
-
           </>
         )}
 

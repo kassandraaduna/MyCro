@@ -7,6 +7,7 @@ const cors = require('cors');
 const userRoutes = require('./routes/userRoutes');
 const authRoutes = require('./routes/authRoutes');
 const adminRoutes = require('./routes/adminRoutes');
+const assessmentRoutes = require('./routes/assessmentRoutes'); 
 
 const app = express();
 
@@ -20,6 +21,7 @@ mongoose.connect(process.env.MONGO_URI || 'mongodb+srv://adunakass:yoyang20@clus
 app.use('/api', userRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api', assessmentRoutes); 
 
 const PORT = process.env.PORT || 8000;
 app.listen(PORT, () => {

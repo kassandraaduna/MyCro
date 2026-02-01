@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import axios from 'axios';
 import { useLocation, useNavigate } from 'react-router-dom';
 import './HomeStudent.css';
@@ -35,10 +35,32 @@ function HomePageStudent() {
     currentPassword: '',
     newPassword: '',
     confirmNewPassword: '',
+    otpCode: '',
+    otpId: '',
+    maskedEmail: '',
+    expiresAt: '',
   });
+
+  const [showStayOrLogout, setShowStayOrLogout] = useState(false);
 
   const [profilePreview, setProfilePreview] = useState('');
   const [savingKey, setSavingKey] = useState('');
+
+  const [assessLoading, setAssessLoading] = useState(false);
+  const [assessError, setAssessError] = useState('');
+  const [assessments, setAssessments] = useState([]);
+
+  const [assessView, setAssessView] = useState('list');
+  const [selectedAssess, setSelectedAssess] = useState(null);
+
+  const [answersMap, setAnswersMap] = useState({});
+  const [submitLoading, setSubmitLoading] = useState(false);
+
+  const [result, setResult] = useState(null);
+
+  const [timeLeft, setTimeLeft] = useState(null);
+  const timerRef = useRef(null);
+  const startedAtRef = useRef(null);
 
   useEffect(() => {
     let u = null;
@@ -75,7 +97,15 @@ function HomePageStudent() {
     setEditEmail(false);
     setEditNumber(false);
     setEditPassword(false);
-    setPassDraft({ currentPassword: '', newPassword: '', confirmNewPassword: '' });
+    setPassDraft({
+      currentPassword: '',
+      newPassword: '',
+      confirmNewPassword: '',
+      otpCode: '',
+      otpId: '',
+      maskedEmail: '',
+      expiresAt: '',
+    });
   }, [user]);
 
   const userId = user?._id || '';
@@ -88,10 +118,14 @@ function HomePageStudent() {
   }, [user]);
 
   const handleLogout = () => {
-    if (!window.confirm('Are you sure you want to logout?')) return;
     localStorage.removeItem('token');
     localStorage.removeItem('user');
     navigate('/Landing');
+  };
+
+  const handleLogoutConfirm = () => {
+    setShowStayOrLogout(false);
+    handleLogout();
   };
 
   const handleSearch = (e) => {
@@ -140,7 +174,7 @@ function HomePageStudent() {
 
   const validateNumber = (number) => {
     const digits = number.replace(/[^\d]/g, '');
-    if (digits.length === 11) return 'Enter 11-digit mobile number.';
+    if (digits.length !== 11) return 'Enter 11-digit mobile number.';
     return null;
   };
 
@@ -149,7 +183,9 @@ function HomePageStudent() {
     if (!currentPassword) return 'Enter your current password.';
     if (!newPassword) return 'Enter your new password.';
     if (newPassword.length < 8) return 'Password must be at least 8 characters.';
-    if (!/[!@#$%^&*]/.test(newPassword)) return 'Must contain a special character.';
+    if (!/[!@#$%^&*]/.test(newPassword)) return 'Must contain a special character (!@#$%^&*).';
+    if (!/[A-Z]/.test(newPassword)) return 'Must contain at least one CAPITAL letter.';
+    if (!/\d/.test(newPassword)) return 'Must contain at least one number.';
     if (newPassword !== confirmNewPassword) return 'Passwords do not match.';
     return null;
   };
@@ -221,21 +257,225 @@ function HomePageStudent() {
     try {
       setSavingKey('password');
 
-      await axios.post('http://localhost:8000/api/auth/change-password', {
+      if (passDraft.otpId && passDraft.otpCode) {
+        const res = await axios.post('http://localhost:8000/api/auth/change-password', {
+          userId,
+          currentPassword: passDraft.currentPassword,
+          newPassword: passDraft.newPassword,
+          otpId: passDraft.otpId,
+          code: passDraft.otpCode,
+        });
+
+        if (res.data?.changed) {
+          setPassDraft({
+            currentPassword: '',
+            newPassword: '',
+            confirmNewPassword: '',
+            otpCode: '',
+            otpId: '',
+            maskedEmail: '',
+            expiresAt: '',
+          });
+          setEditPassword(false);
+
+          setShowStayOrLogout(true);
+        }
+        return;
+      }
+
+      const res = await axios.post('http://localhost:8000/api/auth/change-password', {
         userId,
         currentPassword: passDraft.currentPassword,
         newPassword: passDraft.newPassword,
       });
 
-      setPassDraft({ currentPassword: '', newPassword: '', confirmNewPassword: '' });
-      setEditPassword(false);
-      alert('Password updated securely!');
+      if (res.data?.otpRequired) {
+        setPassDraft((p) => ({
+          ...p,
+          otpId: res.data.otpId || '',
+          maskedEmail: res.data.maskedEmail || '',
+          expiresAt: res.data.expiresAt || '',
+          otpCode: '',
+        }));
+        alert(`OTP sent to ${res.data.maskedEmail || 'your email'}.`);
+      } else {
+        alert(res.data?.message || 'Check response.');
+      }
     } catch (error) {
       alert(error?.response?.data?.message || 'Failed to update password.');
     } finally {
       setSavingKey('');
     }
   };
+
+  const resendChangePassOtp = async () => {
+    try {
+      setSavingKey('password');
+      const res = await axios.post('http://localhost:8000/api/auth/resend-change-password-otp', {
+        userId,
+      });
+
+      setPassDraft((p) => ({
+        ...p,
+        otpId: res.data?.otpId || p.otpId,
+        maskedEmail: res.data?.maskedEmail || p.maskedEmail,
+        expiresAt: res.data?.expiresAt || p.expiresAt,
+      }));
+
+      alert('OTP resent!');
+    } catch (e) {
+      alert(e?.response?.data?.message || 'Failed to resend OTP.');
+    } finally {
+      setSavingKey('');
+    }
+  };
+
+  const stopTimer = () => {
+    if (timerRef.current) clearInterval(timerRef.current);
+    timerRef.current = null;
+  };
+
+  const resetAssessmentUI = () => {
+    stopTimer();
+    startedAtRef.current = null;
+    setTimeLeft(null);
+    setAssessView('list');
+    setSelectedAssess(null);
+    setAnswersMap({});
+    setResult(null);
+    setSubmitLoading(false);
+    setAssessError('');
+  };
+
+  const fetchAssessments = async () => {
+    try {
+      setAssessLoading(true);
+      setAssessError('');
+      const res = await axios.get('http://localhost:8000/api/assessments');
+      setAssessments(Array.isArray(res.data) ? res.data : (res.data?.data || []));
+    } catch (e) {
+      setAssessError(e?.response?.data?.message || 'Failed to load assessments.');
+    } finally {
+      setAssessLoading(false);
+    }
+  };
+
+  const openAssessmentDetails = async (assessmentId) => {
+    try {
+      setAssessLoading(true);
+      setAssessError('');
+      const res = await axios.get(`http://localhost:8000/api/assessments/${assessmentId}`);
+      const a = res.data?.data || res.data;
+      setSelectedAssess(a);
+      setAssessView('details');
+    } catch (e) {
+      setAssessError(e?.response?.data?.message || 'Failed to open assessment.');
+    } finally {
+      setAssessLoading(false);
+    }
+  };
+
+  const startTakingAssessment = () => {
+    if (!selectedAssess) return;
+
+    setAnswersMap({});
+    setResult(null);
+    setAssessError('');
+    setAssessView('take');
+
+    stopTimer();
+    startedAtRef.current = Date.now();
+
+    const hasTimer = Boolean(selectedAssess?.timer?.enabled);
+    const timerSeconds = hasTimer ? Number(selectedAssess?.timer?.minutes || 0) * 60 : 0;
+
+    if (hasTimer && timerSeconds > 0) {
+      setTimeLeft(timerSeconds);
+
+      timerRef.current = setInterval(() => {
+        setTimeLeft((prev) => {
+          if (prev === null) return prev;
+          if (prev <= 1) {
+            clearInterval(timerRef.current);
+            timerRef.current = null;
+
+            setTimeout(() => {
+              submitAssessment(true);
+            }, 200);
+
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    } else {
+      setTimeLeft(null);
+    }
+  };
+
+  const pickAnswer = (questionId, choiceIndex) => {
+    setAnswersMap((p) => ({ ...p, [questionId]: choiceIndex }));
+  };
+
+  const computeTimeSpentSec = () => {
+    if (!startedAtRef.current) return 0;
+    const diffMs = Date.now() - startedAtRef.current;
+    return Math.max(0, Math.floor(diffMs / 1000));
+  };
+
+  const submitAssessment = async (auto = false) => {
+    if (!selectedAssess?._id) return;
+
+    const qs = Array.isArray(selectedAssess?.questions) ? selectedAssess.questions : [];
+    const unanswered = qs.filter((q) => answersMap[q._id] === undefined);
+    if (unanswered.length > 0 && !auto) {
+      if (!window.confirm(`May ${unanswered.length} unanswered. Submit pa rin?`)) return;
+    }
+
+    try {
+      setSubmitLoading(true);
+      setAssessError('');
+      stopTimer();
+
+      const payload = {
+        studentId: userId || null,
+        answers: qs.map((q) => ({
+          questionId: q._id,
+          selectedIndex: answersMap[q._id] ?? null,
+        })),
+        timeSpentSec: computeTimeSpentSec(),
+      };
+
+      const res = await axios.post(
+        `http://localhost:8000/api/assessments/${selectedAssess._id}/submit`,
+        payload
+      );
+
+      const data = res.data?.data || res.data;
+      setResult(data);
+      setAssessView('result');
+    } catch (e) {
+      setAssessError(e?.response?.data?.message || 'Failed to submit assessment.');
+    } finally {
+      setSubmitLoading(false);
+    }
+  };
+
+  const formatTime = (sec) => {
+    if (sec === null || sec === undefined) return '';
+    const m = Math.floor(sec / 60);
+    const s = sec % 60;
+    return `${m}:${String(s).padStart(2, '0')}`;
+  };
+
+  useEffect(() => {
+    if (active !== 'Assesment') return;
+    fetchAssessments();
+  }, [active]);
+
+  useEffect(() => {
+    return () => stopTimer();
+  }, []);
 
   const renderDashboard = () => (
     <div className="hpCard">
@@ -257,10 +497,285 @@ function HomePageStudent() {
 
   const renderAssesment = () => (
     <div className="hpCard">
-      <div className="hpCardHead">
-        <div className="hpCardTitle">Assesment</div>
-        <div className="hpCardSub">Content placeholder</div>
+      <div className="hpCardHead" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+        <div>
+          <div className="hpCardTitle">Assesment</div>
+          <div className="hpCardSub">Answer available assessments created by instructors</div>
+        </div>
+
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button
+            type="button"
+            className="hpBtn"
+            onClick={fetchAssessments}
+            disabled={assessLoading}
+            style={{ padding: '10px 14px' }}
+          >
+            {assessLoading ? 'Loading...' : 'Refresh'}
+          </button>
+
+          {assessView !== 'list' ? (
+            <button
+              type="button"
+              className="hpBtn"
+              onClick={resetAssessmentUI}
+              style={{ padding: '10px 14px' }}
+              disabled={submitLoading}
+            >
+              Back to list
+            </button>
+          ) : null}
+        </div>
       </div>
+
+      {assessError ? (
+        <div style={{ marginTop: 12, color: '#b00020', fontWeight: 700 }}>
+          {assessError}
+        </div>
+      ) : null}
+
+      {assessView === 'list' && (
+        <div style={{ marginTop: 16 }}>
+          {assessLoading ? (
+            <div style={{ opacity: 0.7 }}>Loading assessments...</div>
+          ) : null}
+
+          {!assessLoading && assessments.length === 0 ? (
+            <div style={{ opacity: 0.75 }}>No assessments available yet.</div>
+          ) : null}
+
+          <div style={{ display: 'grid', gap: 12 }}>
+            {assessments.map((a) => (
+              <div
+                key={a._id}
+                style={{
+                  border: '1px solid rgba(0,0,0,0.12)',
+                  borderRadius: 14,
+                  padding: 14,
+                  background: 'rgba(255,255,255,0.65)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: 12,
+                }}
+              >
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ fontWeight: 900, color: '#3f5f4a', letterSpacing: 0.4 }}>
+                    {a.title || 'Untitled Assessment'}
+                  </div>
+                  <div style={{ fontSize: 12, opacity: 0.75, marginTop: 4 }}>
+                    {a.timerEnabled
+                      ? `Timed • ${Math.round(Number(a.timerSeconds || 0) / 60)} min`
+                      : 'No timer'}
+                    {typeof a.totalPoints === 'number' ? ` • ${a.totalPoints} pts` : ''}
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  className="hpBtn"
+                  onClick={() => openAssessmentDetails(a._id)}
+                  style={{ padding: '10px 14px', whiteSpace: 'nowrap' }}
+                  disabled={assessLoading}
+                >
+                  Open
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {assessView === 'details' && selectedAssess && (
+        <div style={{ marginTop: 16 }}>
+          <div style={{ fontWeight: 900, fontSize: 18, color: '#3f5f4a' }}>
+            {selectedAssess.title || 'Untitled Assessment'}
+          </div>
+
+          <div style={{ marginTop: 6, fontSize: 12, opacity: 0.75 }}>
+            {selectedAssess.timerEnabled
+              ? `Timer: ${Math.round(Number(selectedAssess.timerSeconds || 0) / 60)} minutes`
+              : 'Timer: none'}
+            {Array.isArray(selectedAssess.questions)
+              ? ` • Questions: ${selectedAssess.questions.length}`
+              : ''}
+          </div>
+
+          <div style={{ marginTop: 14, display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+            <button
+              type="button"
+              className="hpBtn"
+              onClick={startTakingAssessment}
+              style={{ padding: '10px 16px' }}
+              disabled={assessLoading}
+            >
+              Start
+            </button>
+          </div>
+
+          <div style={{ marginTop: 16, fontSize: 12, opacity: 0.85 }}>
+            Tip: Make sure stable internet before submitting.
+          </div>
+        </div>
+      )}
+
+      {assessView === 'take' && selectedAssess && (
+        <div style={{ marginTop: 16 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>
+            <div>
+              <div style={{ fontWeight: 900, fontSize: 18, color: '#3f5f4a' }}>
+                {selectedAssess.title || 'Assessment'}
+              </div>
+              <div style={{ fontSize: 12, opacity: 0.75, marginTop: 4 }}>
+                Answer all questions then submit.
+              </div>
+            </div>
+
+            {selectedAssess.timerEnabled && typeof timeLeft === 'number' ? (
+              <div
+                style={{
+                  padding: '10px 12px',
+                  borderRadius: 12,
+                  border: '1px solid rgba(0,0,0,0.15)',
+                  background: 'rgba(255,255,255,0.75)',
+                  fontWeight: 900,
+                  minWidth: 90,
+                  textAlign: 'center',
+                }}
+              >
+                {formatTime(timeLeft)}
+              </div>
+            ) : null}
+          </div>
+
+          <div style={{ marginTop: 14, display: 'grid', gap: 14 }}>
+            {(selectedAssess.questions || []).map((q, idx) => {
+              const qid = q._id;
+              const selected = answersMap[qid];
+
+              return (
+                <div
+                  key={qid}
+                  style={{
+                    border: '1px solid rgba(0,0,0,0.12)',
+                    borderRadius: 14,
+                    padding: 14,
+                    background: 'rgba(255,255,255,0.65)',
+                  }}
+                >
+                  <div style={{ fontWeight: 900, color: '#3f5f4a' }}>
+                    {idx + 1}. {q.text}
+                    {typeof q.points === 'number' ? (
+                      <span style={{ fontSize: 12, opacity: 0.7, marginLeft: 8 }}>
+                        ({q.points} pts)
+                      </span>
+                    ) : null}
+                  </div>
+
+                  <div style={{ marginTop: 10, display: 'grid', gap: 8 }}>
+                    {(q.options || []).map((c, ci) => (
+                      <label
+                        key={`${qid}_${ci}`}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 10,
+                          padding: '10px 12px',
+                          borderRadius: 12,
+                          border: '1px solid rgba(0,0,0,0.12)',
+                          background: selected === ci ? 'rgba(246, 223, 232, 0.55)' : 'rgba(255,255,255,0.85)',
+                          cursor: submitLoading ? 'not-allowed' : 'pointer',
+                          userSelect: 'none',
+                        }}
+                      >
+                        <input
+                          type="radio"
+                          name={`q_${qid}`}
+                          checked={selected === ci}
+                          disabled={submitLoading}
+                          onChange={() => pickAnswer(qid, ci)}
+                        />
+                        <div style={{ fontSize: 13, fontWeight: 800, opacity: 0.85 }}>
+                          {c}
+                        </div>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          <div style={{ marginTop: 16, display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+            <button
+              type="button"
+              className="hpBtn"
+              onClick={() => submitAssessment(false)}
+              disabled={submitLoading}
+              style={{ padding: '10px 16px' }}
+            >
+              {submitLoading ? 'Submitting...' : 'Submit'}
+            </button>
+
+            <button
+              type="button"
+              className="hpBtn"
+              onClick={resetAssessmentUI}
+              disabled={submitLoading}
+              style={{ padding: '10px 16px' }}
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
+      {assessView === 'result' && (
+        <div style={{ marginTop: 16 }}>
+          <div style={{ fontWeight: 900, fontSize: 18, color: '#3f5f4a' }}>
+            Result
+          </div>
+
+          {result ? (
+            <div
+              style={{
+                marginTop: 12,
+                border: '1px solid rgba(0,0,0,0.12)',
+                borderRadius: 14,
+                padding: 14,
+                background: 'rgba(255,255,255,0.65)',
+              }}
+            >
+              <div style={{ fontSize: 13, fontWeight: 900, opacity: 0.9 }}>
+                Score: {result.score} / {result.total}
+                {typeof result.percent === 'number' ? ` (${result.percent}%)` : ''}
+              </div>
+
+              <div style={{ marginTop: 10, fontSize: 13, fontWeight: 800, opacity: 0.85 }}>
+                Feedback:
+              </div>
+              <div style={{ marginTop: 6, fontSize: 13, opacity: 0.85 }}>
+                {result.feedback || 'No feedback configured.'}
+              </div>
+            </div>
+          ) : (
+            <div style={{ marginTop: 12, opacity: 0.75 }}>
+              Submitted.
+            </div>
+          )}
+
+          <div style={{ marginTop: 14, display: 'flex', gap: 10 }}>
+            <button
+              type="button"
+              className="hpBtn"
+              onClick={resetAssessmentUI}
+              style={{ padding: '10px 16px' }}
+            >
+              Back to list
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 
@@ -404,6 +919,31 @@ function HomePageStudent() {
                 value={passDraft.confirmNewPassword}
                 onChange={onPassChange('confirmNewPassword')}
               />
+
+              {passDraft.otpId ? (
+                <>
+                  <div style={{ fontSize: 12, fontWeight: 900, opacity: 0.75, marginTop: 6 }}>
+                    Enter OTP sent to <b>{passDraft.maskedEmail || 'your email'}</b>
+                  </div>
+                  <input
+                    className="hpInput"
+                    type="text"
+                    placeholder="OTP Code"
+                    value={passDraft.otpCode}
+                    onChange={onPassChange('otpCode')}
+                    inputMode="numeric"
+                  />
+                  <button
+                    type="button"
+                    className="hpBtn"
+                    onClick={resendChangePassOtp}
+                    disabled={savingKey === 'password'}
+                    style={{ marginTop: 6 }}
+                  >
+                    Resend OTP
+                  </button>
+                </>
+              ) : null}
             </div>
           )}
 
@@ -414,12 +954,73 @@ function HomePageStudent() {
               </button>
             ) : (
               <button className="hpBtn" type="button" onClick={savePassword} disabled={savingKey === 'password'}>
-                {savingKey === 'password' ? 'Saving...' : 'Save'}
+                {savingKey === 'password'
+                  ? 'Saving...'
+                  : passDraft.otpId
+                    ? 'Verify & Save'
+                    : 'Send OTP'}
               </button>
             )}
           </div>
         </div>
       </div>
+
+      {showStayOrLogout ? (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0,0,0,0.35)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: 18,
+            zIndex: 9999,
+          }}
+          onClick={() => setShowStayOrLogout(false)}
+        >
+          <div
+            style={{
+              width: '100%',
+              maxWidth: 380,
+              background: '#fff',
+              borderRadius: 14,
+              padding: '18px 16px',
+              border: '1px solid rgba(0,0,0,0.12)',
+              boxShadow: '0 18px 45px rgba(0,0,0,0.18)',
+              textAlign: 'center',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ fontWeight: 900, letterSpacing: 0.4 }}>
+              Password changed successfully
+            </div>
+            <div style={{ marginTop: 10, fontSize: 13, fontWeight: 800, opacity: 0.8 }}>
+              Do you want to stay logged in or logout?
+            </div>
+
+            <div style={{ marginTop: 14, display: 'flex', gap: 10 }}>
+              <button
+                type="button"
+                className="hpBtn"
+                onClick={() => setShowStayOrLogout(false)}
+                style={{ flex: 1 }}
+              >
+                Stay Logged In
+              </button>
+
+              <button
+                type="button"
+                className="hpBtn"
+                onClick={handleLogoutConfirm}
+                style={{ flex: 1 }}
+              >
+                Logout
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 
@@ -499,7 +1100,10 @@ function HomePageStudent() {
         </div>
 
         <div className="hpSideBottom">
-          <button type="button" className="hpLogout" onClick={handleLogout}>
+          <button type="button" className="hpLogout" onClick={() => {
+            if (!window.confirm('Are you sure you want to logout?')) return;
+            handleLogout();
+          }}>
             LOGOUT
           </button>
         </div>

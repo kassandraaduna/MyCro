@@ -2,10 +2,27 @@ import React, { useEffect, useMemo, useState } from 'react';
 import axios from 'axios';
 import { useLocation, useNavigate } from 'react-router-dom';
 import './HomeInstructor.css';
-import toast from '../Components/Toast'
+import Toast from '../Components/Toast';
+
+const API = 'http://localhost:8000/api';
+
+const emptyQuestion = () => ({
+  text: '',
+  points: 1,
+  options: ['', '', '', ''],
+  correctIndex: 0,
+});
+
+const emptyRange = () => ({
+  min: 0,
+  max: 0,
+  message: '',
+});
 
 function HomeInstructor() {
   const [toast, setToast] = useState('');
+  const [showStayOrLogout, setShowStayOrLogout] = useState(false);
+
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -37,12 +54,33 @@ function HomeInstructor() {
     currentPassword: '',
     newPassword: '',
     confirmNewPassword: '',
+    otpCode: '',
+    otpId: '',
+    maskedEmail: '',
+    expiresAt: '',
   });
 
   const [profilePreview, setProfilePreview] = useState('');
   const [savingKey, setSavingKey] = useState('');
 
-  // ✅ load user same approach as student (location state OR localStorage)
+  // ---------- ASSESSMENT STATE ----------
+  const [assessments, setAssessments] = useState([]);
+  const [assLoading, setAssLoading] = useState(false);
+  const [assError, setAssError] = useState('');
+
+  const [showAddAssessment, setShowAddAssessment] = useState(false);
+
+  const [assTitle, setAssTitle] = useState('');
+  const [assUseTimer, setAssUseTimer] = useState(false);
+  const [assTimerMinutes, setAssTimerMinutes] = useState(10);
+  const [assQuestions, setAssQuestions] = useState([emptyQuestion()]);
+  const [assRanges, setAssRanges] = useState([
+    { min: 0, max: 49, message: 'Review more about the topic.' },
+    { min: 50, max: 79, message: 'Good job! Keep practicing.' },
+    { min: 80, max: 100, message: 'Excellent performance!' },
+  ]);
+  const [assFormError, setAssFormError] = useState('');
+
   useEffect(() => {
     let u = null;
 
@@ -78,7 +116,15 @@ function HomeInstructor() {
     setEditEmail(false);
     setEditNumber(false);
     setEditPassword(false);
-    setPassDraft({ currentPassword: '', newPassword: '', confirmNewPassword: '' });
+    setPassDraft({
+      currentPassword: '',
+      newPassword: '',
+      confirmNewPassword: '',
+      otpCode: '',
+      otpId: '',
+      maskedEmail: '',
+      expiresAt: '',
+    });
   }, [user]);
 
   const userId = user?._id || '';
@@ -91,12 +137,15 @@ function HomeInstructor() {
   }, [user]);
 
   const handleLogout = () => {
-    if (!window.confirm('Are you sure you want to logout?')) return;
     localStorage.removeItem('token');
     localStorage.removeItem('user');
     navigate('/Landing');
   };
-  
+
+  const handleLogoutConfirm = () => {
+    setShowStayOrLogout(false);
+    handleLogout();
+  };
 
   const handleSearch = (e) => e.preventDefault();
 
@@ -122,7 +171,6 @@ function HomeInstructor() {
     setProfilePreview(URL.createObjectURL(file));
   };
 
-  // ✅ SAME endpoint pattern as student (adjust if your route is different)
   const putUpdate = async (payload) => {
     if (!userId) {
       setToast('Walang userId. Mag-login ulit.');
@@ -143,7 +191,7 @@ function HomeInstructor() {
 
   const validateNumber = (number) => {
     const digits = number.replace(/[^\d]/g, '');
-    if (digits.length === 11) return 'Enter 11-digit mobile number.';
+    if (digits.length !== 11) return 'Enter 11-digit mobile number.';
     return null;
   };
 
@@ -152,7 +200,9 @@ function HomeInstructor() {
     if (!currentPassword) return 'Enter your current password.';
     if (!newPassword) return 'Enter your new password.';
     if (newPassword.length < 8) return 'Password must be at least 8 characters.';
-    if (!/[!@#$%^&*]/.test(newPassword)) return 'Must contain a special character.';
+    if (!/[!@#$%^&*]/.test(newPassword)) return 'Must contain a special character (!@#$%^&*).';
+    if (!/[A-Z]/.test(newPassword)) return 'Must contain at least one CAPITAL letter.';
+    if (!/\d/.test(newPassword)) return 'Must contain at least one number.';
     if (newPassword !== confirmNewPassword) return 'Passwords do not match.';
     return null;
   };
@@ -217,6 +267,7 @@ function HomeInstructor() {
     }
   };
 
+  // NEW: OTP-based change password
   const savePassword = async () => {
     const err = validatePassword();
     if (err) return setToast(err);
@@ -224,19 +275,203 @@ function HomeInstructor() {
     try {
       setSavingKey('password');
 
-      await axios.post('http://localhost:8000/api/auth/change-password', {
+      // STEP 2
+      if (passDraft.otpId && passDraft.otpCode) {
+        const res = await axios.post('http://localhost:8000/api/auth/change-password', {
+          userId,
+          currentPassword: passDraft.currentPassword,
+          newPassword: passDraft.newPassword,
+          otpId: passDraft.otpId,
+          code: passDraft.otpCode,
+        });
+
+        if (res.data?.changed) {
+          setPassDraft({
+            currentPassword: '',
+            newPassword: '',
+            confirmNewPassword: '',
+            otpCode: '',
+            otpId: '',
+            maskedEmail: '',
+            expiresAt: '',
+          });
+          setEditPassword(false);
+          setShowStayOrLogout(true);
+        }
+        return;
+      }
+
+      // STEP 1
+      const res = await axios.post('http://localhost:8000/api/auth/change-password', {
         userId,
         currentPassword: passDraft.currentPassword,
         newPassword: passDraft.newPassword,
       });
 
-      setPassDraft({ currentPassword: '', newPassword: '', confirmNewPassword: '' });
-      setEditPassword(false);
-      setToast('Password updated!');
+      if (res.data?.otpRequired) {
+        setPassDraft((p) => ({
+          ...p,
+          otpId: res.data.otpId || '',
+          maskedEmail: res.data.maskedEmail || '',
+          expiresAt: res.data.expiresAt || '',
+          otpCode: '',
+        }));
+        setToast(`OTP sent to ${res.data.maskedEmail || 'your email'}.`);
+      } else {
+        setToast(res.data?.message || 'Check response.');
+      }
     } catch (error) {
       setToast(error?.response?.data?.message || 'Failed to update password.');
     } finally {
       setSavingKey('');
+    }
+  };
+
+  const resendChangePassOtp = async () => {
+    try {
+      setSavingKey('password');
+      const res = await axios.post('http://localhost:8000/api/auth/resend-change-password-otp', {
+        userId,
+      });
+
+      setPassDraft((p) => ({
+        ...p,
+        otpId: res.data?.otpId || p.otpId,
+        maskedEmail: res.data?.maskedEmail || p.maskedEmail,
+        expiresAt: res.data?.expiresAt || p.expiresAt,
+      }));
+
+      setToast('OTP resent!');
+    } catch (e) {
+      setToast(e?.response?.data?.message || 'Failed to resend OTP.');
+    } finally {
+      setSavingKey('');
+    }
+  };
+
+  // ---------- ASSESSMENT FUNCTIONS ----------
+  const resetAssessmentForm = () => {
+    setAssTitle('');
+    setAssUseTimer(false);
+    setAssTimerMinutes(10);
+    setAssQuestions([emptyQuestion()]);
+    setAssRanges([
+      { min: 0, max: 49, message: 'Review more about the topic.' },
+      { min: 50, max: 79, message: 'Good job! Keep practicing.' },
+      { min: 80, max: 100, message: 'Excellent performance!' },
+    ]);
+    setAssFormError('');
+  };
+
+  const fetchAssessments = async () => {
+    try {
+      setAssLoading(true);
+      setAssError('');
+      const res = await axios.get(`${API}/assessments`);
+      setAssessments(res.data?.data || []);
+    } catch (e) {
+      console.error(e);
+      setAssError(e?.response?.data?.message || 'Failed to fetch assessments.');
+    } finally {
+      setAssLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (active !== 'Assessment') return;
+    fetchAssessments();
+  }, [active]);
+
+  const validateAssessmentForm = () => {
+    if (!assTitle.trim()) return 'Quiz title is required.';
+    if (assUseTimer && (!assTimerMinutes || Number(assTimerMinutes) <= 0)) return 'Timer minutes must be > 0.';
+
+    for (let i = 0; i < assQuestions.length; i++) {
+      const q = assQuestions[i];
+      if (!q.text.trim()) return `Question #${i + 1} is empty.`;
+      if (!q.points || Number(q.points) <= 0) return `Question #${i + 1} points must be > 0.`;
+
+      const filledOptions = q.options.filter((o) => String(o || '').trim() !== '');
+      if (filledOptions.length < 2) return `Question #${i + 1} needs at least 2 options.`;
+
+      if (q.correctIndex < 0 || q.correctIndex >= q.options.length) return `Invalid correct answer on question #${i + 1}.`;
+      if (!String(q.options[q.correctIndex] || '').trim()) return `Correct answer is blank on question #${i + 1}.`;
+    }
+
+    if (!assRanges.length) return 'Add at least 1 feedback range.';
+    for (let i = 0; i < assRanges.length; i++) {
+      const r = assRanges[i];
+      if (r.min === '' || r.max === '') return `Range #${i + 1} min/max required.`;
+      if (Number(r.min) > Number(r.max)) return `Range #${i + 1} min cannot be greater than max.`;
+      if (!String(r.message || '').trim()) return `Range #${i + 1} message is required.`;
+    }
+
+    return null;
+  };
+
+  const saveAssessment = async () => {
+    const err = validateAssessmentForm();
+    if (err) {
+      setAssFormError(err);
+      return;
+    }
+
+    try {
+      setAssFormError('');
+      setAssLoading(true);
+
+      const payload = {
+        title: assTitle.trim(),
+        createdBy: userId || null,
+        timer: assUseTimer
+          ? { enabled: true, minutes: Number(assTimerMinutes) }
+          : { enabled: false, minutes: null },
+        questions: assQuestions.map((q) => ({
+          text: q.text.trim(),
+          points: Number(q.points),
+          options: q.options.map((o) => String(o || '')),
+          correctIndex: Number(q.correctIndex),
+        })),
+        feedbackRanges: assRanges.map((r) => ({
+          min: Number(r.min),
+          max: Number(r.max),
+          message: String(r.message || '').trim(),
+        })),
+      };
+
+      const res = await axios.post(`${API}/assessments`, payload);
+      const created = res.data?.data;
+
+      if (created) setAssessments((prev) => [created, ...prev]);
+
+      setShowAddAssessment(false);
+      resetAssessmentForm();
+      setToast('Assessment added!');
+    } catch (e) {
+      console.error(e);
+      setAssFormError(e?.response?.data?.message || 'Failed to save assessment.');
+    } finally {
+      setAssLoading(false);
+    }
+  };
+
+  const deleteAssessment = async (id) => {
+    if (!id) return;
+
+    const ok = window.confirm('Delete this assessment?');
+    if (!ok) return;
+
+    try {
+      setAssLoading(true);
+      await axios.delete(`${API}/assessments/${id}`);
+
+      setAssessments((prev) => prev.filter((a) => a._id !== id));
+      setToast('Assessment deleted!');
+    } catch (e) {
+      console.error(e);
+      setToast(e?.response?.data?.message || 'Failed to delete assessment.');
+    } finally {
+      setAssLoading(false);
     }
   };
 
@@ -259,12 +494,467 @@ function HomeInstructor() {
     </div>
   );
 
-  const renderAssessment = () => (
+const renderAssessment = () => (
     <div className="hiCard">
-      <div className="hiCardHead">
-        <div className="hiCardTitle">Manage Assessments</div>
-        <div className="hiCardSub">Content placeholder</div>
+      <div className="hiCardHead" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+        <div>
+          <div className="hiCardTitle">Manage Assessments</div>
+          <div className="hiCardSub">Create quizzes with timer, questions, points, and feedback ranges.</div>
+        </div>
+
+        <button
+          type="button"
+          className="hiBtn"
+          onClick={() => {
+            setShowAddAssessment(true);
+            setAssFormError('');
+          }}
+        >
+          + Add New
+        </button>
       </div>
+
+      {assLoading ? <div style={{ marginTop: 12, fontWeight: 800, opacity: 0.7 }}>Loading...</div> : null}
+      {assError ? <div style={{ marginTop: 12, fontWeight: 800, color: '#c62828' }}>{assError}</div> : null}
+
+      <div style={{ marginTop: 14, display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 12 }}>
+        {assessments.map((a) => (
+          <div
+            key={a._id}
+            style={{
+              border: '1px solid rgba(0,0,0,0.10)',
+              borderRadius: 16,
+              padding: 14,
+              background: 'rgba(255,255,255,0.70)',
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'center' }}>
+              <div style={{ fontWeight: 900, color: '#3f5f4a' }}>{a.title}</div>
+
+              <button
+                type="button"
+                onClick={() => deleteAssessment(a._id)}
+                disabled={assLoading}
+                style={{
+                  height: 28,
+                  padding: '0 10px',
+                  borderRadius: 10,
+                  border: '1px solid rgba(0,0,0,0.18)',
+                  background: '#fff',
+                  cursor: assLoading ? 'not-allowed' : 'pointer',
+                  fontWeight: 900,
+                  color: '#c62828',
+                }}
+              >
+                Delete
+              </button>
+            </div>
+
+            <div style={{ marginTop: 6, fontSize: 12, opacity: 0.75 }}>
+              {a.timer?.enabled ? `Timer: ${a.timer.minutes} min` : 'No Timer'} • {a.questions?.length || 0} questions
+            </div>
+          </div>
+        ))}
+        {!assLoading && assessments.length === 0 ? (
+          <div style={{ marginTop: 6, fontWeight: 800, opacity: 0.7 }}>No assessments yet.</div>
+        ) : null}
+      </div>
+
+      {showAddAssessment ? (
+        <div
+          role="presentation"
+          onMouseDown={() => !assLoading && setShowAddAssessment(false)}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 9999,
+            background: 'rgba(0,0,0,0.25)',
+            backdropFilter: 'blur(10px)',
+            WebkitBackdropFilter: 'blur(10px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: 18,
+          }}
+        >
+          <div
+            role="presentation"
+            onMouseDown={(e) => e.stopPropagation()}
+            style={{
+              width: '100%',
+              maxWidth: 780,
+              background: '#fff',
+              borderRadius: 18,
+              padding: 16,
+              border: '1px solid rgba(0,0,0,0.12)',
+              boxShadow: '0 18px 45px rgba(0,0,0,0.18)',
+              maxHeight: '92vh',
+              overflow: 'auto',
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
+              <div style={{ fontWeight: 900, letterSpacing: 0.6 }}>Add New Assessment</div>
+              <button
+                type="button"
+                onClick={() => !assLoading && setShowAddAssessment(false)}
+                style={{
+                  width: 36,
+                  height: 36,
+                  borderRadius: 12,
+                  border: '1px solid rgba(0,0,0,0.18)',
+                  background: 'rgba(246,223,232,0.35)',
+                  cursor: 'pointer',
+                  fontWeight: 900,
+                }}
+              >
+                ✕
+              </button>
+            </div>
+
+            {assFormError ? (
+              <div
+                style={{
+                  marginTop: 10,
+                  background: 'rgba(198,40,40,0.08)',
+                  border: '1px solid rgba(198,40,40,0.2)',
+                  color: '#c62828',
+                  padding: 10,
+                  borderRadius: 12,
+                  fontWeight: 800,
+                }}
+              >
+                {assFormError}
+              </div>
+            ) : null}
+
+            <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 6 }}>
+              <label style={{ fontSize: 12, fontWeight: 900, opacity: 0.75 }}>Quiz Title</label>
+              <input
+                value={assTitle}
+                onChange={(e) => setAssTitle(e.target.value)}
+                placeholder="Enter title..."
+                style={{
+                  height: 40,
+                  borderRadius: 12,
+                  border: '1px solid rgba(0,0,0,0.18)',
+                  padding: '0 12px',
+                }}
+              />
+            </div>
+
+            <div style={{ marginTop: 12, display: 'flex', gap: 12, alignItems: 'flex-end', flexWrap: 'wrap' }}>
+              <label style={{ display: 'flex', gap: 10, alignItems: 'center', fontWeight: 900, opacity: 0.85 }}>
+                <input type="checkbox" checked={assUseTimer} onChange={(e) => setAssUseTimer(e.target.checked)} />
+                Timer
+              </label>
+
+              {assUseTimer ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  <label style={{ fontSize: 12, fontWeight: 900, opacity: 0.75 }}>Minutes</label>
+                  <input
+                    type="number"
+                    min="1"
+                    value={assTimerMinutes}
+                    onChange={(e) => setAssTimerMinutes(e.target.value)}
+                    style={{
+                      height: 40,
+                      width: 140,
+                      borderRadius: 12,
+                      border: '1px solid rgba(0,0,0,0.18)',
+                      padding: '0 12px',
+                    }}
+                  />
+                </div>
+              ) : null}
+            </div>
+
+            <div style={{ marginTop: 16, fontWeight: 900, color: '#3f5f4a', letterSpacing: 0.4 }}>
+              Questions
+            </div>
+
+            {assQuestions.map((q, idx) => (
+              <div
+                key={idx}
+                style={{
+                  marginTop: 12,
+                  border: '1px solid rgba(0,0,0,0.10)',
+                  borderRadius: 16,
+                  padding: 12,
+                  background: 'rgba(246,223,232,0.18)',
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                  <div style={{ fontWeight: 900, opacity: 0.8 }}>Question #{idx + 1}</div>
+                  {assQuestions.length > 1 ? (
+                    <button
+                      type="button"
+                      onClick={() => setAssQuestions((prev) => prev.filter((_, i) => i !== idx))}
+                      style={{
+                        height: 30,
+                        padding: '0 10px',
+                        borderRadius: 10,
+                        border: '1px solid rgba(0,0,0,0.18)',
+                        background: '#fff',
+                        cursor: 'pointer',
+                        fontWeight: 900,
+                      }}
+                    >
+                      Remove
+                    </button>
+                  ) : null}
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  <label style={{ fontSize: 12, fontWeight: 900, opacity: 0.75 }}>Question</label>
+                  <input
+                    value={q.text}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      setAssQuestions((prev) => prev.map((it, i) => (i === idx ? { ...it, text: v } : it)));
+                    }}
+                    placeholder="Type question..."
+                    style={{
+                      height: 40,
+                      borderRadius: 12,
+                      border: '1px solid rgba(0,0,0,0.18)',
+                      padding: '0 12px',
+                    }}
+                  />
+                </div>
+
+                <div style={{ marginTop: 12, display: 'flex', gap: 12, alignItems: 'flex-end', flexWrap: 'wrap' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    <label style={{ fontSize: 12, fontWeight: 900, opacity: 0.75 }}>Points</label>
+                    <input
+                      type="number"
+                      min="1"
+                      value={q.points}
+                      onChange={(e) => {
+                        const v = e.target.value;
+                        setAssQuestions((prev) => prev.map((it, i) => (i === idx ? { ...it, points: v } : it)));
+                      }}
+                      style={{
+                        height: 40,
+                        width: 140,
+                        borderRadius: 12,
+                        border: '1px solid rgba(0,0,0,0.18)',
+                        padding: '0 12px',
+                      }}
+                    />
+                  </div>
+
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    <label style={{ fontSize: 12, fontWeight: 900, opacity: 0.75 }}>Correct Answer</label>
+                    <select
+                      value={q.correctIndex}
+                      onChange={(e) => {
+                        const v = Number(e.target.value);
+                        setAssQuestions((prev) => prev.map((it, i) => (i === idx ? { ...it, correctIndex: v } : it)));
+                      }}
+                      style={{
+                        height: 40,
+                        width: 180,
+                        borderRadius: 12,
+                        border: '1px solid rgba(0,0,0,0.18)',
+                        padding: '0 12px',
+                      }}
+                    >
+                      {q.options.map((_, optIndex) => (
+                        <option key={optIndex} value={optIndex}>
+                          Option {optIndex + 1}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                <div style={{ marginTop: 12 }}>
+                  {q.options.map((opt, optIndex) => (
+                    <div key={optIndex} style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 10 }}>
+                      <label style={{ fontSize: 12, fontWeight: 900, opacity: 0.75 }}>Option {optIndex + 1}</label>
+                      <input
+                        value={opt}
+                        onChange={(e) => {
+                          const v = e.target.value;
+                          setAssQuestions((prev) =>
+                            prev.map((it, i) => {
+                              if (i !== idx) return it;
+                              const newOpts = [...it.options];
+                              newOpts[optIndex] = v;
+                              return { ...it, options: newOpts };
+                            })
+                          );
+                        }}
+                        placeholder={`Option ${optIndex + 1}...`}
+                        style={{
+                          height: 40,
+                          borderRadius: 12,
+                          border: '1px solid rgba(0,0,0,0.18)',
+                          padding: '0 12px',
+                        }}
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+
+            <button
+              type="button"
+              onClick={() => setAssQuestions((prev) => [...prev, emptyQuestion()])}
+              style={{
+                marginTop: 10,
+                height: 36,
+                padding: '0 14px',
+                borderRadius: 12,
+                border: '1px dashed rgba(0,0,0,0.25)',
+                background: 'transparent',
+                fontWeight: 900,
+                cursor: 'pointer',
+              }}
+            >
+              + Add Question
+            </button>
+
+            <div style={{ marginTop: 18, fontWeight: 900, color: '#3f5f4a', letterSpacing: 0.4 }}>
+              Evaluation / Feedback (Score Ranges)
+            </div>
+
+            {assRanges.map((r, idx) => (
+              <div
+                key={idx}
+                style={{
+                  marginTop: 12,
+                  border: '1px solid rgba(0,0,0,0.10)',
+                  borderRadius: 16,
+                  padding: 12,
+                  background: 'rgba(246,223,232,0.18)',
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                  <div style={{ fontWeight: 900, opacity: 0.8 }}>Range #{idx + 1}</div>
+                  {assRanges.length > 1 ? (
+                    <button
+                      type="button"
+                      onClick={() => setAssRanges((prev) => prev.filter((_, i) => i !== idx))}
+                      style={{
+                        height: 30,
+                        padding: '0 10px',
+                        borderRadius: 10,
+                        border: '1px solid rgba(0,0,0,0.18)',
+                        background: '#fff',
+                        cursor: 'pointer',
+                        fontWeight: 900,
+                      }}
+                    >
+                      Remove
+                    </button>
+                  ) : null}
+                </div>
+
+                <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    <label style={{ fontSize: 12, fontWeight: 900, opacity: 0.75 }}>Min</label>
+                    <input
+                      type="number"
+                      value={r.min}
+                      onChange={(e) => {
+                        const v = e.target.value;
+                        setAssRanges((prev) => prev.map((it, i) => (i === idx ? { ...it, min: v } : it)));
+                      }}
+                      style={{
+                        height: 40,
+                        width: 140,
+                        borderRadius: 12,
+                        border: '1px solid rgba(0,0,0,0.18)',
+                        padding: '0 12px',
+                      }}
+                    />
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    <label style={{ fontSize: 12, fontWeight: 900, opacity: 0.75 }}>Max</label>
+                    <input
+                      type="number"
+                      value={r.max}
+                      onChange={(e) => {
+                        const v = e.target.value;
+                        setAssRanges((prev) => prev.map((it, i) => (i === idx ? { ...it, max: v } : it)));
+                      }}
+                      style={{
+                        height: 40,
+                        width: 140,
+                        borderRadius: 12,
+                        border: '1px solid rgba(0,0,0,0.18)',
+                        padding: '0 12px',
+                      }}
+                    />
+                  </div>
+                </div>
+
+                <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  <label style={{ fontSize: 12, fontWeight: 900, opacity: 0.75 }}>Feedback Message</label>
+                  <input
+                    value={r.message}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      setAssRanges((prev) => prev.map((it, i) => (i === idx ? { ...it, message: v } : it)));
+                    }}
+                    placeholder="e.g. Excellent!"
+                    style={{
+                      height: 40,
+                      borderRadius: 12,
+                      border: '1px solid rgba(0,0,0,0.18)',
+                      padding: '0 12px',
+                    }}
+                  />
+                </div>
+              </div>
+            ))}
+
+            <button
+              type="button"
+              onClick={() => setAssRanges((prev) => [...prev, emptyRange()])}
+              style={{
+                marginTop: 10,
+                height: 36,
+                padding: '0 14px',
+                borderRadius: 12,
+                border: '1px dashed rgba(0,0,0,0.25)',
+                background: 'transparent',
+                fontWeight: 900,
+                cursor: 'pointer',
+              }}
+            >
+              + Add Range
+            </button>
+
+            <div style={{ marginTop: 16, display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowAddAssessment(false);
+                  resetAssessmentForm();
+                }}
+                disabled={assLoading}
+                style={{
+                  height: 36,
+                  padding: '0 14px',
+                  borderRadius: 12,
+                  border: '1px solid rgba(0,0,0,0.18)',
+                  background: 'transparent',
+                  fontWeight: 900,
+                  cursor: 'pointer',
+                }}
+              >
+                Cancel
+              </button>
+              <button type="button" className="hiBtn" onClick={saveAssessment} disabled={assLoading}>
+                {assLoading ? 'Saving...' : 'Save Assessment'}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 
@@ -408,6 +1098,31 @@ function HomeInstructor() {
                 value={passDraft.confirmNewPassword}
                 onChange={onPassChange('confirmNewPassword')}
               />
+
+              {passDraft.otpId ? (
+                <>
+                  <div style={{ fontSize: 12, fontWeight: 900, opacity: 0.75, marginTop: 6 }}>
+                    Enter OTP sent to <b>{passDraft.maskedEmail || 'your email'}</b>
+                  </div>
+                  <input
+                    className="hiInput"
+                    type="text"
+                    placeholder="OTP Code"
+                    value={passDraft.otpCode}
+                    onChange={onPassChange('otpCode')}
+                    inputMode="numeric"
+                  />
+                  <button
+                    type="button"
+                    className="hiBtn"
+                    onClick={resendChangePassOtp}
+                    disabled={savingKey === 'password'}
+                    style={{ marginTop: 6 }}
+                  >
+                    Resend OTP
+                  </button>
+                </>
+              ) : null}
             </div>
           )}
 
@@ -418,12 +1133,73 @@ function HomeInstructor() {
               </button>
             ) : (
               <button className="hiBtn" type="button" onClick={savePassword} disabled={savingKey === 'password'}>
-                {savingKey === 'password' ? 'Saving...' : 'Save'}
+                {savingKey === 'password'
+                  ? 'Saving...'
+                  : passDraft.otpId
+                    ? 'Verify & Save'
+                    : 'Send OTP'}
               </button>
             )}
           </div>
         </div>
       </div>
+
+      {showStayOrLogout ? (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0,0,0,0.35)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: 18,
+            zIndex: 9999,
+          }}
+          onClick={() => setShowStayOrLogout(false)}
+        >
+          <div
+            style={{
+              width: '100%',
+              maxWidth: 380,
+              background: '#fff',
+              borderRadius: 14,
+              padding: '18px 16px',
+              border: '1px solid rgba(0,0,0,0.12)',
+              boxShadow: '0 18px 45px rgba(0,0,0,0.18)',
+              textAlign: 'center',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ fontWeight: 900, letterSpacing: 0.4 }}>
+              Password changed successfully
+            </div>
+            <div style={{ marginTop: 10, fontSize: 13, fontWeight: 800, opacity: 0.8 }}>
+              Do you want to stay logged in or logout?
+            </div>
+
+            <div style={{ marginTop: 14, display: 'flex', gap: 10 }}>
+              <button
+                type="button"
+                className="hiBtn"
+                onClick={() => setShowStayOrLogout(false)}
+                style={{ flex: 1 }}
+              >
+                Stay Logged In
+              </button>
+
+              <button
+                type="button"
+                className="hiBtn"
+                onClick={handleLogoutConfirm}
+                style={{ flex: 1 }}
+              >
+                Logout
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 
@@ -503,7 +1279,10 @@ function HomeInstructor() {
         </div>
 
         <div className="hiSideBottom">
-          <button type="button" className="hiLogout" onClick={handleLogout}>
+          <button type="button" className="hiLogout" onClick={() => {
+            if (!window.confirm('Are you sure you want to logout?')) return;
+            handleLogout();
+          }}>
             LOGOUT
           </button>
         </div>
@@ -531,6 +1310,8 @@ function HomeInstructor() {
 
         <div className="hiContent">{renderMain()}</div>
       </section>
+
+      <Toast message={toast} onClose={() => setToast('')} />
     </div>
   );
 }

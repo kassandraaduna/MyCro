@@ -12,6 +12,8 @@ const MFA_INTERVAL_DAYS = Number(process.env.MFA_INTERVAL_DAYS || 15);
 const GMAIL_USER = process.env.GMAIL_USER;
 const GMAIL_APP_PASSWORD = process.env.GMAIL_APP_PASSWORD;
 
+const MAX_LOGIN_ATTEMPTS = 3;
+
 const maskEmail = (email) => {
   const [name, domain] = String(email).split('@');
   if (!domain) return email;
@@ -34,6 +36,11 @@ const makeTransporter = () => {
   });
 };
 
+const isValidEmail = (email) => {
+  const e = String(email || '').trim().toLowerCase();
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);
+};
+
 const sendOtpEmail = async (email, code, subject = 'Your Verification Code') => {
   const transporter = makeTransporter();
   await transporter.sendMail({
@@ -42,6 +49,7 @@ const sendOtpEmail = async (email, code, subject = 'Your Verification Code') => 
     subject,
     text: `Your verification code is: ${code}\n\nExpires in ${OTP_EXP_MINUTES} minutes.`,
   });
+  return { ok: true };
 };
 
 const enforceCooldown = async (email, purpose, messagePrefix) => {
@@ -73,9 +81,19 @@ const buildSafeUser = (user) => ({
   email: user.email,
   role: user.role,
   active: user.active,
-  mustChangePassword: !!user.mustChangePassword, 
+  mustChangePassword: !!user.mustChangePassword,
 });
 
+const validatePasswordRules = (password) => {
+  const pass = String(password || '');
+  if (pass.length < 8) return 'Password must be at least 8 characters long.';
+  if (!/[!@#$%^&*]/.test(pass)) return 'Password must contain at least one special character (!@#$%^&*).';
+  if (!/[A-Z]/.test(pass)) return 'Password must contain at least one CAPITAL letter.';
+  if (!/\d/.test(pass)) return 'Password must contain at least one number.';
+  return null;
+};
+
+// ---------------- LOGIN ----------------
 const login = async (req, res) => {
   try {
     const { usernameOrEmail, password } = req.body;
@@ -84,19 +102,61 @@ const login = async (req, res) => {
       return res.status(400).json({ message: 'username/email and password are required' });
     }
 
+    const cleanUser = String(usernameOrEmail).trim();
     const user = await UserModel.findOne({
-      $or: [{ username: usernameOrEmail }, { email: usernameOrEmail }],
+      $or: [{ username: cleanUser }, { email: cleanUser.toLowerCase() }],
     });
 
-    if (!user) return res.status(401).json({ message: 'Invalid credentials' });
+    if (!user) return res.status(401).json({ message: 'Username and password invalid' });
 
     if (user.active === false) {
       return res.status(403).json({ message: 'Account is deactivated. Please contact admin.' });
     }
 
     const ok = await bcrypt.compare(password, user.password);
-    if (!ok) return res.status(401).json({ message: 'Invalid credentials' });
 
+    if (!ok) {
+      user.failedLoginAttempts = Number(user.failedLoginAttempts || 0) + 1;
+      user.lastFailedLoginAt = new Date();
+
+      if (user.failedLoginAttempts >= MAX_LOGIN_ATTEMPTS) {
+        user.active = false;
+
+        try {
+          await AuditLog.create({
+            action: 'Account auto-deactivated (3 invalid logins)',
+            targetUser: user._id,
+            targetEmail: user.email,
+            actorUser: user._id,
+            actorName: `${user.fname || ''} ${user.lname || ''}`.trim(),
+            actorRole: user.role || 'user',
+            details: `Auto-deactivated after ${user.failedLoginAttempts} failed login attempts`,
+          });
+        } catch (logErr) {
+          console.error('AuditLog(Auto-Deactivate) error:', logErr);
+        }
+
+        await user.save();
+
+        return res.status(403).json({
+          message: 'Account is deactivated due to 3 failed login attempts. Please contact admin.',
+        });
+      }
+
+      await user.save();
+
+      return res.status(401).json({
+        message: 'Username and password invalid',
+      });
+    }
+
+    // reset attempts on success
+    if (user.failedLoginAttempts > 0 || user.lastFailedLoginAt) {
+      user.failedLoginAttempts = 0;
+      user.lastFailedLoginAt = null;
+    }
+
+    // MFA
     if (isMfaDue(user.mfaLastVerifiedAt)) {
       const purpose = 'login_mfa';
 
@@ -120,7 +180,14 @@ const login = async (req, res) => {
         lastSentAt: new Date(),
       });
 
-      await sendOtpEmail(user.email, code, 'Your Login Verification Code');
+      try {
+        await sendOtpEmail(user.email, code, 'Your Login Verification Code');
+      } catch (mailErr) {
+        console.error('sendOtpEmail(login) error:', mailErr);
+        return res.status(500).json({ message: 'Failed to send OTP. Please try again later.' });
+      }
+
+      await user.save();
 
       return res.json({
         message: 'OTP required',
@@ -145,6 +212,8 @@ const login = async (req, res) => {
     } catch (logErr) {
       console.error('AuditLog(Login) error:', logErr);
     }
+
+    await user.save();
 
     return res.json({
       message: 'Login successful',
@@ -201,6 +270,10 @@ const verifyLoginOtp = async (req, res) => {
     }
 
     user.mfaLastVerifiedAt = new Date();
+
+    user.failedLoginAttempts = 0;
+    user.lastFailedLoginAt = null;
+
     await user.save();
 
     try {
@@ -263,7 +336,12 @@ const resendLoginOtp = async (req, res) => {
       lastSentAt: new Date(),
     });
 
-    await sendOtpEmail(cleanEmail, code, 'Your Login Verification Code');
+    try {
+      await sendOtpEmail(cleanEmail, code, 'Your Login Verification Code');
+    } catch (mailErr) {
+      console.error('sendOtpEmail(resend login) error:', mailErr);
+      return res.status(500).json({ message: 'Failed to resend code.' });
+    }
 
     return res.json({
       otpId: otpDoc._id,
@@ -277,9 +355,11 @@ const resendLoginOtp = async (req, res) => {
   }
 };
 
+// ---------------- CHANGE PASSWORD ----------------
+
 const changePassword = async (req, res) => {
   try {
-    const { userId, currentPassword, newPassword } = req.body;
+    const { userId, currentPassword, newPassword, otpId, code } = req.body;
 
     if (!userId || !currentPassword || !newPassword) {
       return res.status(400).json({ message: 'userId, currentPassword, and newPassword are required' });
@@ -288,45 +368,166 @@ const changePassword = async (req, res) => {
     const user = await UserModel.findById(userId);
     if (!user) return res.status(404).json({ message: 'User not found' });
 
+    if (user.active === false) {
+      return res.status(403).json({ message: 'Account is deactivated. Please contact admin.' });
+    }
+
     const ok = await bcrypt.compare(currentPassword, user.password);
     if (!ok) return res.status(401).json({ message: 'Current password is incorrect' });
 
-    if (newPassword.length < 8) return res.status(400).json({ message: 'New password must be at least 8 characters long' });
+    const passErr = validatePasswordRules(newPassword);
+    if (passErr) return res.status(400).json({ message: passErr });
 
-    const specialCharRegex = /[!@#$%^&*]/;
-    if (!specialCharRegex.test(newPassword)) {
-      return res.status(400).json({ message: 'New password must contain at least one special character' });
+    const purpose = 'change_password';
+
+    if (otpId && code) {
+      const otpDoc = await EmailOtp.findById(otpId);
+      if (!otpDoc) return res.status(400).json({ message: 'OTP expired or not found.' });
+      if (otpDoc.used) return res.status(400).json({ message: 'OTP already used.' });
+      if (otpDoc.expiresAt < new Date()) return res.status(400).json({ message: 'OTP expired.' });
+      if (otpDoc.purpose !== purpose) return res.status(400).json({ message: 'Invalid OTP purpose.' });
+      if (String(otpDoc.email || '').toLowerCase() !== String(user.email || '').toLowerCase()) {
+        return res.status(400).json({ message: 'OTP email mismatch. Please resend code.' });
+      }
+
+      if (otpDoc.attempts >= otpDoc.maxAttempts) {
+        return res.status(429).json({ message: 'Too many attempts. Please resend code.' });
+      }
+
+      const isValid = await bcrypt.compare(String(code).trim(), otpDoc.codeHash);
+      if (!isValid) {
+        otpDoc.attempts += 1;
+        await otpDoc.save();
+        return res.status(400).json({
+          message: `Invalid code. Attempts left: ${otpDoc.maxAttempts - otpDoc.attempts}`,
+        });
+      }
+
+      otpDoc.used = true;
+      await otpDoc.save();
+
+      const salt = await bcrypt.genSalt(10);
+      user.password = await bcrypt.hash(newPassword, salt);
+      user.mustChangePassword = false;
+      await user.save();
+
+      try {
+        await AuditLog.create({
+          action: 'Password Change (OTP Verified)',
+          targetUser: user._id,
+          targetEmail: user.email,
+          actorUser: user._id,
+          actorName: `${user.fname || ''} ${user.lname || ''}`.trim(),
+          actorRole: user.role || 'user',
+          details: 'User changed password with OTP verification',
+        });
+      } catch (logErr) {
+        console.error('AuditLog(Password Change OTP) error:', logErr);
+      }
+
+      return res.json({
+        message: 'Password updated successfully',
+        changed: true,
+      });
     }
 
-    const salt = await bcrypt.genSalt(10);
-    user.password = await bcrypt.hash(newPassword, salt);
+    if (!isValidEmail(user.email)) {
+      return res.status(400).json({ message: 'User email is invalid. Please update your email first.' });
+    }
 
-    user.mustChangePassword = false;
+    const cooldown = await enforceCooldown(user.email, purpose, 'Please wait');
+    if (cooldown.blocked) return res.status(429).json({ message: cooldown.message });
 
-    await user.save();
+    const otpCode = makeOtpCode();
+    const codeHash = await bcrypt.hash(otpCode, 10);
+    const expiresAt = new Date(Date.now() + OTP_EXP_MINUTES * 60 * 1000);
+
+    const otpDoc = await EmailOtp.create({
+      email: user.email,
+      purpose,
+      codeHash,
+      attempts: 0,
+      maxAttempts: 3,
+      used: false,
+      expiresAt,
+      lastSentAt: new Date(),
+    });
 
     try {
-      await AuditLog.create({
-        action: 'Password Change',
-        targetUser: user._id,
-        targetEmail: user.email,
-        actorUser: user._id,
-        actorName: `${user.fname || ''} ${user.lname || ''}`.trim(),
-        actorRole: user.role || 'user',
-        details: 'User changed password',
-      });
-    } catch (logErr) {
-      console.error('AuditLog(Password Change) error:', logErr);
+      await sendOtpEmail(user.email, otpCode, 'Your Password Change Verification Code');
+    } catch (mailErr) {
+      console.error('sendOtpEmail(change password) error:', mailErr);
+      return res.status(500).json({ message: 'Failed to send OTP. Please try again later.' });
     }
 
-    return res.json({ message: 'Password updated successfully' });
+    return res.json({
+      message: 'OTP required',
+      otpRequired: true,
+      otpId: otpDoc._id,
+      maskedEmail: maskEmail(user.email),
+      expiresAt: otpDoc.expiresAt,
+    });
   } catch (err) {
     console.error('Change password error:', err);
     return res.status(500).json({ message: 'Internal Server Error' });
   }
 };
 
+const resendChangePasswordOtp = async (req, res) => {
+  try {
+    const { userId } = req.body;
+    if (!userId) return res.status(400).json({ message: 'userId is required' });
 
+    const user = await UserModel.findById(userId).lean();
+    if (!user) return res.status(404).json({ message: 'User not found' });
+
+    if (user.active === false) {
+      return res.status(403).json({ message: 'Account is deactivated. Please contact admin.' });
+    }
+
+    const purpose = 'change_password';
+
+    if (!isValidEmail(user.email)) {
+      return res.status(400).json({ message: 'User email is invalid. Please update your email first.' });
+    }
+
+    const cooldown = await enforceCooldown(user.email, purpose, 'Please wait');
+    if (cooldown.blocked) return res.status(429).json({ message: cooldown.message });
+
+    const otpCode = makeOtpCode();
+    const codeHash = await bcrypt.hash(otpCode, 10);
+    const expiresAt = new Date(Date.now() + OTP_EXP_MINUTES * 60 * 1000);
+
+    const otpDoc = await EmailOtp.create({
+      email: user.email,
+      purpose,
+      codeHash,
+      attempts: 0,
+      maxAttempts: 3,
+      used: false,
+      expiresAt,
+      lastSentAt: new Date(),
+    });
+
+    try {
+      await sendOtpEmail(user.email, otpCode, 'Your Password Change Verification Code');
+    } catch (mailErr) {
+      console.error('sendOtpEmail(resend change password) error:', mailErr);
+      return res.status(500).json({ message: 'Failed to resend code.' });
+    }
+
+    return res.json({
+      otpId: otpDoc._id,
+      maskedEmail: maskEmail(user.email),
+      expiresAt: otpDoc.expiresAt,
+    });
+  } catch (err) {
+    console.error('resendChangePasswordOtp error:', err);
+    return res.status(500).json({ message: 'Failed to resend code' });
+  }
+};
+
+// ---------------- REGISTER OTP ----------------
 const requestEmailOtp = async (req, res) => {
   try {
     const { email, purpose } = req.body;
@@ -334,6 +535,10 @@ const requestEmailOtp = async (req, res) => {
 
     const cleanEmail = email.trim().toLowerCase();
     const realPurpose = purpose || 'register';
+
+    if (!isValidEmail(cleanEmail)) {
+      return res.status(400).json({ message: 'Please enter a valid email address.' });
+    }
 
     const existingUser = await UserModel.findOne({ email: cleanEmail }).lean();
     if (existingUser) return res.status(409).json({ message: 'Email already registered.' });
@@ -356,7 +561,12 @@ const requestEmailOtp = async (req, res) => {
       lastSentAt: new Date(),
     });
 
-    await sendOtpEmail(cleanEmail, code, 'Your Registration Verification Code');
+    try {
+      await sendOtpEmail(cleanEmail, code, 'Your Registration Verification Code');
+    } catch (mailErr) {
+      console.error('sendOtpEmail(register) error:', mailErr);
+      return res.status(500).json({ message: 'Failed to send OTP. Please try again later.' });
+    }
 
     return res.json({
       otpId: otpDoc._id,
@@ -377,6 +587,10 @@ const resendEmailOtp = async (req, res) => {
     const cleanEmail = email.trim().toLowerCase();
     const realPurpose = purpose || 'register';
 
+    if (!isValidEmail(cleanEmail)) {
+      return res.status(400).json({ message: 'Please enter a valid email address.' });
+    }
+
     const cooldown = await enforceCooldown(cleanEmail, realPurpose, 'Please wait');
     if (cooldown.blocked) return res.status(429).json({ message: cooldown.message });
 
@@ -398,7 +612,12 @@ const resendEmailOtp = async (req, res) => {
       lastSentAt: new Date(),
     });
 
-    await sendOtpEmail(cleanEmail, code, 'Your Registration Verification Code');
+    try {
+      await sendOtpEmail(cleanEmail, code, 'Your Registration Verification Code');
+    } catch (mailErr) {
+      console.error('sendOtpEmail(resend register) error:', mailErr);
+      return res.status(500).json({ message: 'Failed to resend code.' });
+    }
 
     return res.json({
       otpId: otpDoc._id,
@@ -429,6 +648,11 @@ const verifyEmailOtpAndRegister = async (req, res) => {
     }
 
     const cleanEmail = String(medData.email || '').trim().toLowerCase();
+
+    if (!isValidEmail(cleanEmail)) {
+      return res.status(400).json({ message: 'Please enter a valid email address.' });
+    }
+
     if (!cleanEmail || cleanEmail !== otpDoc.email) {
       return res.status(400).json({ message: 'Email mismatch. Please resend code.' });
     }
@@ -453,6 +677,9 @@ const verifyEmailOtpAndRegister = async (req, res) => {
 
     const { fname, lname, dob, gender, number, username, password } = medData;
 
+    const passErr = validatePasswordRules(password);
+    if (passErr) return res.status(400).json({ message: passErr });
+
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
 
@@ -468,7 +695,10 @@ const verifyEmailOtpAndRegister = async (req, res) => {
       role: 'user',
       active: true,
       mfaLastVerifiedAt: null,
-      mustChangePassword: false, 
+      mustChangePassword: false,
+
+      failedLoginAttempts: 0,
+      lastFailedLoginAt: null,
     });
 
     await AuditLog.create({
@@ -491,14 +721,24 @@ const verifyEmailOtpAndRegister = async (req, res) => {
   }
 };
 
+// ---------------- RESET PASSWORD OTP ----------------
 const requestPasswordResetOtp = async (req, res) => {
   try {
     const { email } = req.body;
     if (!email) return res.status(400).json({ message: 'email is required' });
 
     const cleanEmail = email.trim().toLowerCase();
+
+    if (!isValidEmail(cleanEmail)) {
+      return res.status(400).json({ message: 'Please enter a valid email address.' });
+    }
+
     const user = await UserModel.findOne({ email: cleanEmail }).lean();
     if (!user) return res.status(404).json({ message: 'Email not found.' });
+
+    if (user.active === false) {
+      return res.status(403).json({ message: 'Account is deactivated. Please contact admin.' });
+    }
 
     const purpose = 'reset_password';
 
@@ -520,7 +760,12 @@ const requestPasswordResetOtp = async (req, res) => {
       lastSentAt: new Date(),
     });
 
-    await sendOtpEmail(cleanEmail, code, 'Your Password Reset Code');
+    try {
+      await sendOtpEmail(cleanEmail, code, 'Your Password Reset Code');
+    } catch (mailErr) {
+      console.error('sendOtpEmail(reset) error:', mailErr);
+      return res.status(500).json({ message: 'Failed to send reset OTP' });
+    }
 
     return res.json({
       otpId: otpDoc._id,
@@ -539,8 +784,17 @@ const resendPasswordResetOtp = async (req, res) => {
     if (!email) return res.status(400).json({ message: 'email is required' });
 
     const cleanEmail = email.trim().toLowerCase();
+
+    if (!isValidEmail(cleanEmail)) {
+      return res.status(400).json({ message: 'Please enter a valid email address.' });
+    }
+
     const user = await UserModel.findOne({ email: cleanEmail }).lean();
     if (!user) return res.status(404).json({ message: 'Email not found.' });
+
+    if (user.active === false) {
+      return res.status(403).json({ message: 'Account is deactivated. Please contact admin.' });
+    }
 
     const purpose = 'reset_password';
 
@@ -562,7 +816,12 @@ const resendPasswordResetOtp = async (req, res) => {
       lastSentAt: new Date(),
     });
 
-    await sendOtpEmail(cleanEmail, code, 'Your Password Reset Code');
+    try {
+      await sendOtpEmail(cleanEmail, code, 'Your Password Reset Code');
+    } catch (mailErr) {
+      console.error('sendOtpEmail(resend reset) error:', mailErr);
+      return res.status(500).json({ message: 'Failed to resend reset OTP' });
+    }
 
     return res.json({
       otpId: otpDoc._id,
@@ -608,24 +867,22 @@ const verifyPasswordResetOtp = async (req, res) => {
       });
     }
 
-    // verify-only mode
     if (!newPassword) {
       return res.json({ message: 'OTP verified' });
     }
 
-    if (newPassword.length < 8) {
-      return res.status(400).json({ message: 'New password must be at least 8 characters long' });
-    }
-    const specialCharRegex = /[!@#$%^&*]/;
-    if (!specialCharRegex.test(newPassword)) {
-      return res.status(400).json({ message: 'New password must contain at least one special character' });
-    }
+    const passErr = validatePasswordRules(newPassword);
+    if (passErr) return res.status(400).json({ message: passErr });
 
     otpDoc.used = true;
     await otpDoc.save();
 
     const user = await UserModel.findOne({ email: otpDoc.email });
     if (!user) return res.status(404).json({ message: 'User not found.' });
+
+    if (user.active === false) {
+      return res.status(403).json({ message: 'Account is deactivated. Please contact admin.' });
+    }
 
     const salt = await bcrypt.genSalt(10);
     user.password = await bcrypt.hash(newPassword, salt);
@@ -658,6 +915,7 @@ module.exports = {
   resendLoginOtp,
 
   changePassword,
+  resendChangePasswordOtp,
 
   requestEmailOtp,
   resendEmailOtp,
