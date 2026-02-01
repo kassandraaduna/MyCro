@@ -2,24 +2,57 @@ const mongoose = require('mongoose');
 
 const EmailOtpSchema = new mongoose.Schema(
   {
-    email: { type: String, required: true, lowercase: true, trim: true },
-    purpose: { type: String, default: 'register' },
+    email: {
+      type: String,
+      required: true,
+      lowercase: true,
+      trim: true,
+      index: true,
+    },
 
-    codeHash: { type: String, required: true },
+    purpose: {
+      type: String,
+      required: true,
+      enum: ['register', 'login_mfa', 'reset_password'],
+      default:  'register',
+      index: true,
+    },
 
-    attempts: { type: Number, default: 0 },
-    maxAttempts: { type: Number, default: 3 },
-    used: { type: Boolean, default: false },
+    codeHash: { 
+      type: String, 
+      required: true, 
+    },
 
-    expiresAt: { type: Date, required: true },
+    attempts: { 
+      type: Number, 
+      default: 0, 
+    },
 
-    lastSentAt: { type: Date, default: Date.now },
+    maxAttempts: { 
+      type: Number, 
+      default: 3, 
+    },
+
+    used: { 
+      type: Boolean, 
+      default: false,
+      index: true, 
+    },
+
+    expiresAt: { 
+      type: Date, 
+      required: true,
+      index: true,
+    },
+
+    lastSentAt: { 
+      type: Date, 
+      default: Date.now, 
+    },
   },
   { timestamps: true }
 );
 
-EmailOtpSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
+EmailOtpSchema.index({ email: 1, purpose: 1, used: 1, expiresAt: 1 });
 
-EmailOtpSchema.index({ email: 1, purpose: 1, lastSentAt: -1 });
-
-module.exports = mongoose.model('email_otps', EmailOtpSchema);
+module.exports = mongoose.model('EmailOtp', EmailOtpSchema);
