@@ -12,6 +12,7 @@ const UserSchema = new mongoose.Schema(
       trim: true
     },
     number: { type: String, required: true, trim: true },
+    address: { type: String, default: '', trim: true },
     username: { type: String, required: true, unique: true, trim: true },
     password: { type: String, required: true },
     email: { type: String, required: true, unique: true, trim: true, lowercase: true },
@@ -20,7 +21,6 @@ const UserSchema = new mongoose.Schema(
     role: { type: String, default: 'student' },
 
     mustChangePassword: { type: Boolean, default: false },
-
     mfaLastVerifiedAt: { type: Date, default: null },
 
     failedLoginAttempts: { type: Number, default: 0 },

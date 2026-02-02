@@ -17,6 +17,8 @@ function HomePageStudent() {
     lname: '',
     email: '',
     number: '',
+    dob: '',
+    address: '',
   });
 
   const [draft, setDraft] = useState({
@@ -24,12 +26,16 @@ function HomePageStudent() {
     lname: '',
     email: '',
     number: '',
+    dob: '',
+    address: '',
   });
 
   const [editName, setEditName] = useState(false);
   const [editEmail, setEditEmail] = useState(false);
   const [editNumber, setEditNumber] = useState(false);
   const [editPassword, setEditPassword] = useState(false);
+  const [editDob, setEditDob] = useState(false);
+  const [editAddress, setEditAddress] = useState(false);
 
   const [passDraft, setPassDraft] = useState({
     currentPassword: '',
@@ -88,6 +94,8 @@ function HomePageStudent() {
       lname: user?.lname || '',
       email: user?.email || '',
       number: user?.number || '',
+      dob: user?.dob ? user.dob.slice(0, 10) : '',
+      address: user?.address || '',
     };
 
     setSaved(base);
@@ -97,6 +105,8 @@ function HomePageStudent() {
     setEditEmail(false);
     setEditNumber(false);
     setEditPassword(false);
+    setEditDob(false);
+    setEditAddress(false);
     setPassDraft({
       currentPassword: '',
       newPassword: '',
@@ -249,6 +259,45 @@ function HomePageStudent() {
       setSavingKey('');
     }
   };
+
+  const saveDob = async () => {
+    try {
+      setSavingKey('dob');
+
+      const updated = await putUpdate({ dob: draft.dob });
+      if (!updated) return;
+
+      localStorage.setItem('user', JSON.stringify(updated));
+      setUser(updated);
+      setEditDob(false);
+      alert('Birthday updated!');
+    } catch (e) {
+      alert(e?.response?.data?.message || 'Failed to update birthday.');
+    } finally {
+      setSavingKey('');
+    }
+  };
+
+  const saveAddress = async () => {
+    if (!draft.address.trim()) return alert('Address cannot be empty.');
+
+    try {
+      setSavingKey('address');
+
+      const updated = await putUpdate({ address: draft.address.trim() });
+      if (!updated) return;
+
+      localStorage.setItem('user', JSON.stringify(updated));
+      setUser(updated);
+      setEditAddress(false);
+      alert('Address updated!');
+    } catch (e) {
+      alert(e?.response?.data?.message || 'Failed to update address.');
+    } finally {
+      setSavingKey('');
+    }
+  };
+
 
   const savePassword = async () => {
     const err = validatePassword();
@@ -478,22 +527,374 @@ function HomePageStudent() {
   }, []);
 
   const renderDashboard = () => (
-    <div className="hpCard">
-      <div className="hpCardHead">
-        <div className="hpCardTitle">Dashboard</div>
-        <div className="hpCardSub">Content placeholder</div>
+  <div className="hpCard" style={{ padding: 16 }}>
+    <div className="hpCardHead" style={{ marginBottom: 14 }}>
+      <div className="hpCardTitle" style={{ fontWeight: 900, fontSize: 20 }}>Dashboard</div>
+      <div className="hpCardSub" style={{ color: '#8a8a8a', fontWeight: 700 }}>
+        Explore MyphoLens — quick access, recent scans, and progress.
       </div>
     </div>
-  );
+
+    <div
+      style={{
+        display: 'grid',
+        gridTemplateColumns: '1fr 340px',
+        gap: 14,
+        alignItems: 'start',
+      }}
+    >
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+        <div
+          style={{
+            border: '1px solid rgba(0,0,0,0.08)',
+            borderRadius: 14,
+            padding: 14,
+            background: '#fff',
+          }}
+        >
+          <div style={{ fontWeight: 900, letterSpacing: 0.3, marginBottom: 10, color: '#2b5b3a' }}>
+            EXPLORE MYPHOLENS
+          </div>
+
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(6, minmax(0, 1fr))',
+              gap: 10,
+            }}
+          >
+            {[
+              { label: 'AI Classifier' },
+              { label: '3D Models' },
+              { label: 'Learn' },
+              { label: 'Assessments' },
+              { label: 'Bookmarks' },
+              { label: 'Scan History' },
+            ].map((item) => (
+              <button
+                key={item.label}
+                type="button"
+                style={{
+                  border: '1px solid rgba(255, 105, 180, 0.35)',
+                  borderRadius: 12,
+                  padding: '14px 10px',
+                  background: '#fff',
+                  fontWeight: 900,
+                  fontSize: 11,
+                  cursor: 'pointer',
+                }}
+                onClick={() => {}}
+              >
+                <div
+                  style={{
+                    width: 34,
+                    height: 34,
+                    borderRadius: 10,
+                    border: '1px dashed rgba(255, 105, 180, 0.55)',
+                    margin: '0 auto 8px',
+                  }}
+                />
+                {item.label.toUpperCase()}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div
+          style={{
+            border: '1px solid rgba(0,0,0,0.08)',
+            borderRadius: 14,
+            padding: 14,
+            background: '#fff',
+          }}
+        >
+          <div style={{ fontWeight: 900, letterSpacing: 0.3, marginBottom: 10, color: '#2b5b3a' }}>
+            LATEST ASSESSMENT SCORE
+          </div>
+
+          <div
+            style={{
+              borderRadius: 14,
+              padding: 14,
+              background: 'rgba(160, 220, 140, 0.45)',
+              border: '1px solid rgba(0,0,0,0.08)',
+              display: 'flex',
+              gap: 12,
+              alignItems: 'center',
+              justifyContent: 'space-between',
+            }}
+          >
+            <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+              <div
+                style={{
+                  width: 44,
+                  height: 44,
+                  borderRadius: 999,
+                  background: 'rgba(0,0,0,0.06)',
+                }}
+              />
+              <div>
+                <div style={{ fontWeight: 900, fontSize: 12 }}>
+                  ASSESSMENT NAME <span style={{ fontWeight: 700, opacity: 0.7 }}>(attempts: 1)</span>
+                </div>
+                <div style={{ fontSize: 12, fontWeight: 700, opacity: 0.75, marginTop: 4 }}>
+                  Excellent identification of all fungi units! Keep it up!
+                </div>
+              </div>
+            </div>
+
+            <div style={{ textAlign: 'right' }}>
+              <div style={{ fontWeight: 900, fontSize: 12 }}>90/100</div>
+              <button
+                type="button"
+                style={{
+                  marginTop: 8,
+                  padding: '6px 14px',
+                  borderRadius: 999,
+                  border: '1px solid rgba(0,0,0,0.18)',
+                  background: '#fff',
+                  fontWeight: 900,
+                  fontSize: 11,
+                  cursor: 'pointer',
+                }}
+                onClick={() => {}}
+              >
+                VIEW
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div
+          style={{
+            border: '1px solid rgba(0,0,0,0.08)',
+            borderRadius: 14,
+            padding: 14,
+            background: '#fff',
+          }}
+        >
+          <div style={{ fontWeight: 900, letterSpacing: 0.3, marginBottom: 10, color: '#2b5b3a' }}>
+            RECENTLY VIEWED TOPICS
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 12 }}>
+            {[
+              'CHARACTERISTICS OF FUNGI',
+              'BASIC MORPHOLOGICAL FORMS',
+              'FUNDAMENTAL UNIT OF FUNGI',
+            ].map((t) => (
+              <div
+                key={t}
+                style={{
+                  border: '1px solid rgba(255, 105, 180, 0.35)',
+                  borderRadius: 14,
+                  padding: 12,
+                  background: '#fff',
+                }}
+              >
+                <div
+                  style={{
+                    height: 86,
+                    borderRadius: 12,
+                    border: '1px dashed rgba(255, 105, 180, 0.55)',
+                    marginBottom: 10,
+                  }}
+                />
+                <div style={{ fontWeight: 900, fontSize: 11, textAlign: 'center' }}>{t}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div
+          style={{
+            border: '1px solid rgba(0,0,0,0.08)',
+            borderRadius: 14,
+            padding: 14,
+            background: '#fff',
+          }}
+        >
+          <div style={{ fontWeight: 900, letterSpacing: 0.3, marginBottom: 10, color: '#2b5b3a' }}>
+            RECENTLY VIEWED MODELS
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 12 }}>
+            {['YEAST', 'BUDDING YEAST', 'PSEUDOHYPHAE'].map((m) => (
+              <div
+                key={m}
+                style={{
+                  border: '1px solid rgba(255, 105, 180, 0.35)',
+                  borderRadius: 14,
+                  padding: 12,
+                  background: '#fff',
+                }}
+              >
+                <div
+                  style={{
+                    height: 92,
+                    borderRadius: 12,
+                    border: '1px dashed rgba(255, 105, 180, 0.55)',
+                    marginBottom: 10,
+                  }}
+                />
+                <div style={{ fontWeight: 900, fontSize: 11, textAlign: 'center' }}>{m}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div
+        style={{
+          border: '1px solid rgba(0,0,0,0.08)',
+          borderRadius: 14,
+          padding: 14,
+          background: '#fff',
+          position: 'sticky',
+          top: 12,
+        }}
+      >
+        <div style={{ fontWeight: 900, letterSpacing: 0.3, marginBottom: 10, color: '#2b5b3a' }}>
+          RECENT SCANS
+        </div>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          {Array.from({ length: 6 }).map((_, idx) => (
+            <div
+              key={idx}
+              style={{
+                border: '1px solid rgba(255, 105, 180, 0.25)',
+                borderRadius: 14,
+                padding: 10,
+                display: 'grid',
+                gridTemplateColumns: '72px 1fr',
+                gap: 10,
+                alignItems: 'center',
+              }}
+            >
+              <div
+                style={{
+                  width: 72,
+                  height: 56,
+                  borderRadius: 12,
+                  background: 'rgba(0,0,0,0.06)',
+                }}
+              />
+              <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
+                  <div style={{ fontWeight: 900, fontSize: 12 }}>YEAST</div>
+                  <div
+                    style={{
+                      width: 14,
+                      height: 18,
+                      borderRadius: 3,
+                      background: 'rgba(0,0,0,0.08)',
+                    }}
+                  />
+                </div>
+                <div style={{ fontSize: 10, fontWeight: 800, opacity: 0.7, marginTop: 2 }}>
+                  date & time • confidence score
+                </div>
+                <div style={{ fontSize: 10, fontWeight: 700, opacity: 0.7, marginTop: 6 }}>
+                  Short description/overview about the AI classification.
+                </div>
+
+                <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+                  <button
+                    type="button"
+                    style={{
+                      padding: '6px 10px',
+                      borderRadius: 999,
+                      border: '1px solid rgba(255, 105, 180, 0.45)',
+                      background: '#fff',
+                      fontWeight: 900,
+                      fontSize: 10,
+                      cursor: 'pointer',
+                    }}
+                    onClick={() => {}}
+                  >
+                    LEARN MORE
+                  </button>
+
+                  <button
+                    type="button"
+                    style={{
+                      padding: '6px 10px',
+                      borderRadius: 999,
+                      border: '1px solid rgba(0,0,0,0.18)',
+                      background: '#fff',
+                      fontWeight: 900,
+                      fontSize: 10,
+                      cursor: 'pointer',
+                    }}
+                    onClick={() => {}}
+                  >
+                    VIEW MODEL
+                  </button>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  </div>
+);
 
   const renderLearn = () => (
-    <div className="hpCard">
-      <div className="hpCardHead">
-        <div className="hpCardTitle">Learn</div>
-        <div className="hpCardSub">Content placeholder</div>
+  <div className="hpCard" style={{ padding: 16 }}>
+    <div style={{ textAlign: 'center', marginTop: 6, marginBottom: 22 }}>
+      <div style={{ fontWeight: 900, letterSpacing: 1.2, fontSize: 20, color: '#2b5b3a' }}>
+        LEARN MYCOLOGY
       </div>
     </div>
-  );
+
+    <div style={{ fontWeight: 900, letterSpacing: 0.8, marginBottom: 12, color: '#2b5b3a' }}>
+      TOPICS
+    </div>
+
+    <div
+      style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+        gap: 14,
+        maxWidth: 680,
+        margin: '0 auto',
+      }}
+    >
+      {[
+        { title: 'CHARACTERISTICS OF FUNGI' },
+        { title: 'FUNGI GROUPS' },
+        { title: 'BASIC MORPHOLOGICAL FORMS' },
+        { title: 'DIAGNOSTIC MYCOLOGY' },
+        { title: 'FUNDAMENTAL UNIT OF FUNGI' },
+        { title: 'MYCOSES' },
+      ].map((t) => (
+        <button
+          key={t.title}
+          type="button"
+          onClick={() => {}}
+          style={{
+            textAlign: 'center',
+            padding: '18px 14px',
+            borderRadius: 12,
+            border: '1px solid rgba(0,0,0,0.18)',
+            background: 'rgba(170, 210, 160, 0.55)',
+            cursor: 'pointer',
+            minHeight: 84,
+          }}
+        >
+          <div style={{ fontWeight: 900, fontSize: 12, color: '#2b5b3a' }}>
+            {t.title}
+          </div>
+          <div style={{ fontWeight: 800, fontSize: 10, opacity: 0.65, marginTop: 8 }}>
+            TOPIC DESCRIPTION
+          </div>
+        </button>
+      ))}
+    </div>
+  </div>
+);
 
   const renderAssesment = () => (
     <div className="hpCard">
@@ -789,13 +1190,314 @@ function HomePageStudent() {
   );
 
   const renderProgress = () => (
-    <div className="hpCard">
-      <div className="hpCardHead">
-        <div className="hpCardTitle">Progress &amp; Performance</div>
-        <div className="hpCardSub">Content placeholder</div>
+  <div className="hpCard" style={{ padding: 16 }}>
+    <div style={{ textAlign: 'center', margin: '18px 0 6px' }}>
+      <div style={{ fontWeight: 900, letterSpacing: 1.2, fontSize: 18, color: '#2b5b3a' }}>
+        PROGRESS AND PERFORMANCE
+      </div>
+      <div style={{ fontWeight: 700, fontSize: 12, opacity: 0.75 }}>
+        Track your progress and performance
       </div>
     </div>
-  );
+
+    <div
+      style={{
+        display: 'grid',
+        gridTemplateColumns: '1.05fr 1fr',
+        gap: 18,
+        marginTop: 18,
+        alignItems: 'start',
+      }}
+    >
+      <div
+        style={{
+          background: '#fff',
+          border: '1px solid rgba(0,0,0,0.12)',
+          borderRadius: 14,
+          padding: 14,
+          boxShadow: '0 10px 25px rgba(0,0,0,0.06)',
+        }}
+      >
+        <div style={{ fontWeight: 900, color: '#2b5b3a', fontSize: 12, marginBottom: 10 }}>
+          ASSESSMENT PERFORMANCE
+        </div>
+
+        {[
+          { level: 'BASIC LEVEL', pct: '79%', icon: '📖' },
+          { level: 'INTERMEDIATE LEVEL', pct: '88%', icon: '🧩' },
+          { level: 'ADVANCED LEVEL', pct: '92%', icon: '📚' },
+        ].map((x) => (
+          <div
+            key={x.level}
+            style={{
+              border: '1px solid rgba(0,0,0,0.12)',
+              borderRadius: 12,
+              padding: 12,
+              display: 'flex',
+              gap: 12,
+              alignItems: 'center',
+              marginBottom: 10,
+            }}
+          >
+            <div
+              style={{
+                width: 44,
+                height: 44,
+                borderRadius: 12,
+                border: '1px solid rgba(0,0,0,0.12)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: 20,
+                background: 'rgba(255, 182, 193, 0.12)',
+              }}
+            >
+              {x.icon}
+            </div>
+
+            <div style={{ flex: 1 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10 }}>
+                <div style={{ fontWeight: 900, color: '#2b5b3a', fontSize: 12 }}>
+                  {x.level}
+                </div>
+                <div style={{ fontWeight: 900, color: '#2b5b3a', fontSize: 12 }}>{x.pct}</div>
+              </div>
+
+              <div style={{ fontSize: 11, fontWeight: 800, opacity: 0.75, marginTop: 6 }}>
+                PERFORMANCE
+              </div>
+              <div style={{ fontSize: 10, fontWeight: 800, opacity: 0.6, marginTop: 2 }}>
+                7 QUIZZES ANSWERED ● AVG. 1.5 ATTEMPTS
+              </div>
+
+              <div
+                style={{
+                  height: 6,
+                  borderRadius: 999,
+                  background: 'rgba(0,0,0,0.08)',
+                  marginTop: 10,
+                  overflow: 'hidden',
+                }}
+              >
+                <div
+                  style={{
+                    height: '100%',
+                    width: x.pct,
+                    background: 'rgba(60, 140, 80, 0.7)',
+                  }}
+                />
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div style={{ display: 'grid', gap: 14 }}>
+        <div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div style={{ fontWeight: 900, color: '#2b5b3a', fontSize: 12 }}>
+              UPLOADED IMAGES (6)
+            </div>
+            <button
+              type="button"
+              onClick={() => {}}
+              style={{
+                border: 'none',
+                background: 'transparent',
+                fontWeight: 900,
+                fontSize: 12,
+                color: '#d46b8c',
+                cursor: 'pointer',
+              }}
+            >
+              SEE ALL ›
+            </button>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 10, marginTop: 10 }}>
+            {[
+              { name: 'YEAST' },
+              { name: 'MOLD' },
+            ].map((x) => (
+              <div
+                key={x.name}
+                style={{
+                  background: '#fff',
+                  border: '1px solid rgba(0,0,0,0.12)',
+                  borderRadius: 14,
+                  padding: 12,
+                  boxShadow: '0 10px 25px rgba(0,0,0,0.06)',
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, marginBottom: 8 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <div
+                      style={{
+                        width: 34,
+                        height: 34,
+                        borderRadius: 10,
+                        border: '1px solid rgba(0,0,0,0.12)',
+                        background: 'rgba(170, 210, 160, 0.55)',
+                      }}
+                    />
+                    <div>
+                      <div style={{ fontWeight: 900, color: '#2b5b3a', fontSize: 12 }}>{x.name}</div>
+                      <div style={{ fontWeight: 800, fontSize: 10, opacity: 0.6 }}>CONFIDENCE SCORE</div>
+                    </div>
+                  </div>
+                  <div
+                    style={{
+                      width: 18,
+                      height: 18,
+                      borderRadius: 4,
+                      border: '1px solid rgba(0,0,0,0.12)',
+                      background: '#fff',
+                    }}
+                    title="bookmark placeholder"
+                  />
+                </div>
+
+                <div style={{ fontSize: 10, fontWeight: 800, opacity: 0.6, lineHeight: 1.3 }}>
+                  Short description/overview about classification
+                </div>
+
+                <div style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
+                  <button
+                    type="button"
+                    onClick={() => {}}
+                    style={{
+                      padding: '6px 10px',
+                      borderRadius: 999,
+                      border: '1px solid rgba(60,140,80,0.35)',
+                      background: 'rgba(170,210,160,0.55)',
+                      fontWeight: 900,
+                      fontSize: 10,
+                      cursor: 'pointer',
+                      color: '#2b5b3a',
+                    }}
+                  >
+                    LEARN MORE
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {}}
+                    style={{
+                      padding: '6px 10px',
+                      borderRadius: 999,
+                      border: '1px solid rgba(60,140,80,0.35)',
+                      background: '#fff',
+                      fontWeight: 900,
+                      fontSize: 10,
+                      cursor: 'pointer',
+                      color: '#2b5b3a',
+                    }}
+                  >
+                    VIEW MODEL
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div style={{ fontWeight: 900, color: '#2b5b3a', fontSize: 12 }}>SCAN HISTORY</div>
+            <button
+              type="button"
+              onClick={() => {}}
+              style={{
+                border: 'none',
+                background: 'transparent',
+                fontWeight: 900,
+                fontSize: 12,
+                color: '#d46b8c',
+                cursor: 'pointer',
+              }}
+            >
+              SEE ALL ›
+            </button>
+          </div>
+
+          <div
+            style={{
+              background: '#fff',
+              border: '1px solid rgba(0,0,0,0.12)',
+              borderRadius: 14,
+              padding: 14,
+              marginTop: 10,
+              boxShadow: '0 10px 25px rgba(0,0,0,0.06)',
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10 }}>
+              <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+                <div
+                  style={{
+                    width: 46,
+                    height: 46,
+                    borderRadius: 12,
+                    border: '1px solid rgba(0,0,0,0.12)',
+                    background: 'rgba(170, 210, 160, 0.55)',
+                  }}
+                />
+                <div>
+                  <div style={{ fontWeight: 900, color: '#2b5b3a', fontSize: 12 }}>YEAST</div>
+                  <div style={{ fontWeight: 800, fontSize: 10, opacity: 0.6 }}>CONFIDENCE SCORE</div>
+                </div>
+              </div>
+
+              <div
+                style={{
+                  width: 18,
+                  height: 18,
+                  borderRadius: 4,
+                  border: '1px solid rgba(0,0,0,0.12)',
+                  background: '#fff',
+                }}
+                title="bookmark placeholder"
+              />
+            </div>
+
+            <div style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
+              <button
+                type="button"
+                onClick={() => {}}
+                style={{
+                  padding: '6px 10px',
+                  borderRadius: 999,
+                  border: '1px solid rgba(60,140,80,0.35)',
+                  background: 'rgba(170,210,160,0.55)',
+                  fontWeight: 900,
+                  fontSize: 10,
+                  cursor: 'pointer',
+                  color: '#2b5b3a',
+                }}
+              >
+                LEARN MORE
+              </button>
+              <button
+                type="button"
+                onClick={() => {}}
+                style={{
+                  padding: '6px 10px',
+                  borderRadius: 999,
+                  border: '1px solid rgba(60,140,80,0.35)',
+                  background: '#fff',
+                  fontWeight: 900,
+                  fontSize: 10,
+                  cursor: 'pointer',
+                  color: '#2b5b3a',
+                }}
+              >
+                VIEW MODEL
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+);
 
   const renderProfile = () => (
     <div className="hpCard">
@@ -888,6 +1590,47 @@ function HomePageStudent() {
             ) : (
               <button className="hpBtn" type="button" onClick={saveNumber} disabled={savingKey === 'number'}>
                 {savingKey === 'number' ? 'Saving...' : 'Save'}
+              </button>
+            )}
+          </div>
+        </div>
+
+        <div className="hpBox">
+          <div className="hpBoxTitle">Birthday</div>
+          <input
+            className="hpInput"
+            type="date"
+            disabled={!editDob}
+            value={draft.dob}
+            onChange={onDraftChange('dob')}
+          />
+          <div className="hpActionsRow">
+            {!editDob ? (
+              <button className="hpBtn" onClick={() => setEditDob(true)}>Edit</button>
+            ) : (
+              <button className="hpBtn" onClick={saveDob} disabled={savingKey === 'dob'}>
+                {savingKey === 'dob' ? 'Saving...' : 'Save'}
+              </button>
+            )}
+          </div>
+        </div>
+
+        <div className="hpBox">
+          <div className="hpBoxTitle">Address</div>
+          <textarea
+            className="hpInput"
+            disabled={!editAddress}
+            value={draft.address}
+            onChange={onDraftChange('address')}
+            placeholder="Enter address"
+            style={{ minHeight: 80, resize: 'vertical' }}
+          />
+          <div className="hpActionsRow">
+            {!editAddress ? (
+              <button className="hpBtn" onClick={() => setEditAddress(true)}>Edit</button>
+            ) : (
+              <button className="hpBtn" onClick={saveAddress} disabled={savingKey === 'address'}>
+                {savingKey === 'address' ? 'Saving...' : 'Save'}
               </button>
             )}
           </div>

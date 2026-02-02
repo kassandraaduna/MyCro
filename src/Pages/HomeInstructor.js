@@ -36,6 +36,8 @@ function HomeInstructor() {
     lname: '',
     email: '',
     number: '',
+    dob: '',
+    address: '',
   });
 
   const [draft, setDraft] = useState({
@@ -43,12 +45,16 @@ function HomeInstructor() {
     lname: '',
     email: '',
     number: '',
+    dob: '',
+    address: '',
   });
 
   const [editName, setEditName] = useState(false);
   const [editEmail, setEditEmail] = useState(false);
   const [editNumber, setEditNumber] = useState(false);
   const [editPassword, setEditPassword] = useState(false);
+  const [editDob, setEditDob] = useState(false);
+  const [editAddress, setEditAddress] = useState(false);
 
   const [passDraft, setPassDraft] = useState({
     currentPassword: '',
@@ -107,6 +113,8 @@ function HomeInstructor() {
       lname: user?.lname || '',
       email: user?.email || '',
       number: user?.number || '',
+      dob: user?.dob ? user.dob.slice(0, 10) : '',
+      address: user?.address || '',
     };
 
     setSaved(base);
@@ -266,6 +274,44 @@ function HomeInstructor() {
       setSavingKey('');
     }
   };
+
+  const saveDob = async () => {
+  try {
+    setSavingKey('dob');
+
+    const updated = await putUpdate({ dob: draft.dob });
+    if (!updated) return;
+
+    localStorage.setItem('user', JSON.stringify(updated));
+    setUser(updated);
+    setEditDob(false);
+    alert('Birthday updated!');
+  } catch (e) {
+    alert(e?.response?.data?.message || 'Failed to update birthday.');
+  } finally {
+    setSavingKey('');
+  }
+};
+
+const saveAddress = async () => {
+  if (!draft.address.trim()) return alert('Address cannot be empty.');
+
+  try {
+    setSavingKey('address');
+
+    const updated = await putUpdate({ address: draft.address.trim() });
+    if (!updated) return;
+
+    localStorage.setItem('user', JSON.stringify(updated));
+    setUser(updated);
+    setEditAddress(false);
+    alert('Address updated!');
+  } catch (e) {
+    alert(e?.response?.data?.message || 'Failed to update address.');
+  } finally {
+    setSavingKey('');
+  }
+};
 
   // NEW: OTP-based change password
   const savePassword = async () => {
@@ -476,16 +522,210 @@ function HomeInstructor() {
   };
 
   // ---------- PAGES ----------
-  const renderDashboard = () => (
-    <div className="hiCard">
-      <div className="hiCardHead">
-        <div className="hiCardTitle">Dashboard</div>
-        <div className="hiCardSub">Content placeholder</div>
+ const renderDashboard = () => (
+  <div className="hiCard" style={{ padding: 16 }}>
+    <div
+      style={{
+        display: 'grid',
+        gridTemplateColumns: '1fr 320px',
+        gap: 16,
+        alignItems: 'start',
+      }}
+    >
+      <div>
+        <div style={{ fontWeight: 900, fontSize: 13, letterSpacing: 0.8, color: '#2b5b3a' }}>
+          EXPLORE MYPHOLENS
+        </div>
+
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(6, minmax(0, 1fr))',
+            gap: 10,
+            marginTop: 10,
+          }}
+        >
+          {[
+            'AI CLASSIFIER',
+            '3D MODELS',
+            'LEARN',
+            'ASSESSMENTS',
+            'BOOKMARKS',
+            'SCAN HISTORY',
+          ].map((label) => (
+            <div key={label} style={{ textAlign: 'center' }}>
+              <div
+                style={{
+                  width: '100%',
+                  aspectRatio: '1 / 1',
+                  borderRadius: 10,
+                  border: '1px solid rgba(212, 107, 140, 0.45)',
+                  background: '#fff',
+                }}
+              />
+              <div style={{ marginTop: 6, fontSize: 10, fontWeight: 900, opacity: 0.75 }}>
+                {label}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div style={{ marginTop: 18, fontWeight: 900, fontSize: 13, letterSpacing: 0.8, color: '#2b5b3a' }}>
+          DASHBOARD
+        </div>
+
+        <div
+          style={{
+            marginTop: 10,
+            background: '#fff',
+            border: '1px solid rgba(0,0,0,0.12)',
+            borderRadius: 14,
+            padding: 14,
+            boxShadow: '0 10px 25px rgba(0,0,0,0.06)',
+          }}
+        >
+          {[
+            {
+              section: 'REGISTERED STUDENTS',
+              title: 'TOTAL REGISTERED STUDENTS',
+              value: '120',
+              tint: 'rgba(170, 210, 160, 0.55)',
+              icon: '👥',
+            },
+            {
+              section: 'ACTIVE STUDENTS',
+              title: 'TOTAL STUDENTS',
+              value: '92',
+              tint: 'rgba(255, 182, 193, 0.45)',
+              icon: '🧑',
+            },
+            {
+              section: 'AI SCANS',
+              title: 'TOTAL AI SCANS',
+              value: '340',
+              tint: 'rgba(170, 210, 160, 0.55)',
+              icon: '🤖',
+            },
+            {
+              section: '',
+              title: 'AVERAGE SCORES',
+              value: '82%',
+              tint: 'rgba(255, 182, 193, 0.45)',
+              icon: '📊',
+            },
+          ].map((x, idx) => (
+            <div key={`${x.title}-${idx}`} style={{ marginBottom: idx === 3 ? 0 : 14 }}>
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  marginBottom: 8,
+                }}
+              >
+                <div style={{ fontWeight: 900, fontSize: 10, opacity: 0.7 }}>
+                  {x.section || ' '}
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => {}}
+                  style={{
+                    border: 'none',
+                    background: 'transparent',
+                    fontWeight: 900,
+                    fontSize: 10,
+                    color: '#d46b8c',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 6,
+                  }}
+                >
+                  SEE ALL <span style={{ fontSize: 14, lineHeight: 1 }}>›</span>
+                </button>
+              </div>
+
+              <div
+                style={{
+                  borderRadius: 12,
+                  border: '1px solid rgba(0,0,0,0.10)',
+                  background: x.tint,
+                  padding: 12,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: 12,
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                  <div
+                    style={{
+                      width: 52,
+                      height: 52,
+                      borderRadius: 12,
+                      border: '1px solid rgba(0,0,0,0.10)',
+                      background: 'rgba(255,255,255,0.55)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontSize: 22,
+                    }}
+                  >
+                    {x.icon}
+                  </div>
+
+                  <div>
+                    <div style={{ fontWeight: 900, fontSize: 11, color: '#2b5b3a' }}>{x.title}</div>
+                    <div style={{ fontWeight: 800, fontSize: 10, opacity: 0.65, marginTop: 2 }}>
+                      # Total
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ fontWeight: 900, fontSize: 12, color: '#2b5b3a' }}>{x.value}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div>
+        <div style={{ fontWeight: 900, fontSize: 13, letterSpacing: 0.8, color: '#2b5b3a' }}>
+          NOTIFICATIONS
+        </div>
+
+        <div style={{ marginTop: 10, display: 'grid', gap: 10 }}>
+          {[
+            'LOW PERFORMANCE: Assessment 1',
+            'New Dataset Images Submitted for Review',
+          ].map((msg, i) => (
+            <div
+              key={i}
+              style={{
+                background: '#fff',
+                border: '1px solid rgba(0,0,0,0.12)',
+                borderRadius: 12,
+                padding: 12,
+                boxShadow: '0 10px 25px rgba(0,0,0,0.05)',
+                display: 'flex',
+                gap: 10,
+                alignItems: 'flex-start',
+              }}
+            >
+              <div style={{ fontWeight: 900, color: '#2b5b3a', opacity: 0.6 }}>✓</div>
+              <div style={{ fontWeight: 800, fontSize: 11, opacity: 0.75, lineHeight: 1.3 }}>
+                {msg}
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
     </div>
-  );
+  </div>
+);
 
-  const renderEducationalContent = () => (
+  const renderLearn = () => (
     <div className="hiCard">
       <div className="hiCardHead">
         <div className="hiCardTitle">Manage Educational Content</div>
@@ -959,13 +1199,377 @@ const renderAssessment = () => (
   );
 
   const renderModelLibrary = () => (
-    <div className="hiCard">
-      <div className="hiCardHead">
-        <div className="hiCardTitle">Manage Model Library</div>
-        <div className="hiCardSub">Content placeholder</div>
+  <div className="hiCard" style={{ padding: 16 }}>
+    <div
+      style={{
+        display: 'grid',
+        gridTemplateColumns: '1fr 320px',
+        gap: 16,
+        alignItems: 'start',
+      }}
+    >
+      <div>
+        <div style={{ fontWeight: 900, fontSize: 13, letterSpacing: 0.8, color: '#2b5b3a' }}>
+          EXPLORE MYPHOLENS
+        </div>
+
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(6, minmax(0, 1fr))',
+            gap: 10,
+            marginTop: 10,
+          }}
+        >
+          {['AI CLASSIFIER', '3D MODELS', 'LEARN', 'ASSESSMENTS', 'BOOKMARKS', 'SCAN HISTORY'].map(
+            (label) => (
+              <div key={label} style={{ textAlign: 'center' }}>
+                <div
+                  style={{
+                    width: '100%',
+                    aspectRatio: '1 / 1',
+                    borderRadius: 10,
+                    border: '1px solid rgba(212, 107, 140, 0.45)',
+                    background: '#fff',
+                  }}
+                />
+                <div style={{ marginTop: 6, fontSize: 10, fontWeight: 900, opacity: 0.75 }}>
+                  {label}
+                </div>
+              </div>
+            )
+          )}
+        </div>
+
+        <div style={{ marginTop: 26, textAlign: 'center' }}>
+          <div style={{ fontWeight: 900, fontSize: 14, letterSpacing: 0.8, color: '#2b5b3a' }}>
+            PROGRESS AND PERFORMANCE
+          </div>
+          <div style={{ marginTop: 4, fontSize: 11, fontWeight: 700, opacity: 0.65 }}>
+            Track progress and performance
+          </div>
+        </div>
+
+        <div style={{ marginTop: 18, fontWeight: 900, fontSize: 12, color: '#2b5b3a', opacity: 0.8 }}>
+          ASSESSMENT PERFORMANCE
+        </div>
+
+        <div style={{ display: 'flex', gap: 10, marginTop: 18, alignItems: 'center' }}>
+          {['STUDENTS', 'BOOKMARKED SCANS', 'UPLOADED IMAGES', 'SCAN HISTORY'].map((t, idx) => (
+            <button
+              key={t}
+              type="button"
+              onClick={() => {}}
+              style={{
+                border: '1px solid rgba(0,0,0,0.12)',
+                background: idx === 0 ? 'rgba(170, 210, 160, 0.65)' : '#fff',
+                color: '#2b5b3a',
+                borderRadius: 10,
+                padding: '8px 12px',
+                fontWeight: 900,
+                fontSize: 10,
+                cursor: 'pointer',
+              }}
+            >
+              {t}
+            </button>
+          ))}
+        </div>
+
+        <div
+          style={{
+            marginTop: 14,
+            background: '#fff',
+            border: '1px solid rgba(0,0,0,0.12)',
+            borderRadius: 14,
+            padding: 14,
+            boxShadow: '0 10px 25px rgba(0,0,0,0.06)',
+          }}
+        >
+          <div style={{ fontWeight: 900, fontSize: 11, opacity: 0.75, marginBottom: 10 }}>
+            TOP PERFORMERS
+          </div>
+
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: '1.2fr 1.2fr 1.6fr 0.6fr',
+              gap: 10,
+              fontWeight: 900,
+              fontSize: 9,
+              opacity: 0.6,
+              paddingBottom: 8,
+              borderBottom: '1px solid rgba(0,0,0,0.08)',
+            }}
+          >
+            <div>STUDENT NAME</div>
+            <div>EMAIL</div>
+            <div>PERFORMANCE</div>
+            <div style={{ textAlign: 'right' }}>OVERALL</div>
+          </div>
+
+          {[
+            { name: 'LUCY ANDERSON', email: 'lucyanderson@example.com', pct: 80 },
+            { name: 'JASON SMITH', email: 'jsmith@example.com', pct: 85 },
+            { name: 'EMILY TAYLOR', email: 'etaylor@example.com', pct: 64 },
+            { name: 'LIAM MILLER', email: 'liamiller@example.com', pct: 50 },
+          ].map((row, i) => (
+            <div
+              key={i}
+              style={{
+                display: 'grid',
+                gridTemplateColumns: '1.2fr 1.2fr 1.6fr 0.6fr',
+                gap: 10,
+                alignItems: 'center',
+                padding: '10px 0',
+                borderBottom: i === 3 ? 'none' : '1px solid rgba(0,0,0,0.06)',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <div
+                  style={{
+                    width: 26,
+                    height: 26,
+                    borderRadius: 999,
+                    border: '1px solid rgba(0,0,0,0.15)',
+                    background: 'rgba(0,0,0,0.04)',
+                  }}
+                />
+                <div>
+                  <div style={{ fontWeight: 900, fontSize: 10 }}>{row.name}</div>
+                </div>
+              </div>
+
+              <div style={{ fontSize: 9, opacity: 0.7, fontWeight: 800 }}>{row.email}</div>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <div
+                  style={{
+                    height: 8,
+                    width: '100%',
+                    borderRadius: 999,
+                    border: '1px solid rgba(0,0,0,0.10)',
+                    overflow: 'hidden',
+                    background: 'rgba(0,0,0,0.04)',
+                  }}
+                >
+                  <div
+                    style={{
+                      height: '100%',
+                      width: `${row.pct}%`,
+                      background: 'rgba(43, 91, 58, 0.55)',
+                    }}
+                  />
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                <div
+                  style={{
+                    padding: '4px 10px',
+                    borderRadius: 999,
+                    border: '1px solid rgba(0,0,0,0.12)',
+                    background: 'rgba(170, 210, 160, 0.40)',
+                    fontWeight: 900,
+                    fontSize: 10,
+                    minWidth: 48,
+                    textAlign: 'center',
+                  }}
+                >
+                  {row.pct}%
+                </div>
+              </div>
+            </div>
+          ))}
+
+          <div style={{ marginTop: 14, display: 'flex', justifyContent: 'flex-end' }}>
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
+                padding: '8px 10px',
+                borderRadius: 999,
+                border: '1px solid rgba(0,0,0,0.12)',
+                width: 280,
+                background: '#fff',
+              }}
+            >
+              <span style={{ opacity: 0.5 }}>🔎</span>
+              <input
+                placeholder="Search student by name, email & number"
+                style={{
+                  border: 'none',
+                  outline: 'none',
+                  width: '100%',
+                  fontSize: 10,
+                }}
+              />
+              <span style={{ opacity: 0.5 }}>⚙️</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div style={{ display: 'grid', gap: 14 }}>
+        <div>
+          <div style={{ fontWeight: 900, fontSize: 12, letterSpacing: 0.6, color: '#2b5b3a' }}>
+            BOOKMARKED SCANS
+          </div>
+
+          <div style={{ marginTop: 10, display: 'grid', gap: 10 }}>
+            {[
+              { label: 'YEAST', score: '80%', badge: 'rgba(170, 210, 160, 0.55)' },
+              { label: 'MOLD', score: '80%', badge: 'rgba(170, 210, 160, 0.55)' },
+            ].map((x, i) => (
+              <div
+                key={i}
+                style={{
+                  background: '#fff',
+                  border: '1px solid rgba(0,0,0,0.12)',
+                  borderRadius: 14,
+                  padding: 10,
+                  boxShadow: '0 10px 25px rgba(0,0,0,0.05)',
+                  display: 'grid',
+                  gridTemplateColumns: '64px 1fr',
+                  gap: 10,
+                  alignItems: 'center',
+                }}
+              >
+                <div
+                  style={{
+                    width: 64,
+                    height: 52,
+                    borderRadius: 12,
+                    border: '1px solid rgba(0,0,0,0.10)',
+                    background: 'rgba(0,0,0,0.04)',
+                  }}
+                />
+                <div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div style={{ fontWeight: 900, fontSize: 11 }}>{x.label}</div>
+                    <div
+                      style={{
+                        padding: '3px 8px',
+                        borderRadius: 999,
+                        border: '1px solid rgba(0,0,0,0.10)',
+                        background: x.badge,
+                        fontWeight: 900,
+                        fontSize: 10,
+                      }}
+                    >
+                      {x.score}
+                    </div>
+                  </div>
+                  <div style={{ marginTop: 4, fontSize: 9, fontWeight: 800, opacity: 0.7 }}>
+                    Confidence Score:
+                    <br />
+                    Description:
+                  </div>
+
+                  <div style={{ marginTop: 8, display: 'flex', gap: 8 }}>
+                    <button
+                      type="button"
+                      style={{
+                        border: '1px solid rgba(0,0,0,0.12)',
+                        background: 'rgba(170, 210, 160, 0.35)',
+                        borderRadius: 999,
+                        padding: '5px 10px',
+                        fontWeight: 900,
+                        fontSize: 9,
+                        cursor: 'pointer',
+                      }}
+                    >
+                      LEARN MORE
+                    </button>
+                    <button
+                      type="button"
+                      style={{
+                        border: '1px solid rgba(0,0,0,0.12)',
+                        background: 'rgba(255, 182, 193, 0.40)',
+                        borderRadius: 999,
+                        padding: '5px 10px',
+                        fontWeight: 900,
+                        fontSize: 9,
+                        cursor: 'pointer',
+                      }}
+                    >
+                      VIEW MODEL
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div>
+          <div style={{ fontWeight: 900, fontSize: 12, letterSpacing: 0.6, color: '#2b5b3a' }}>
+            UPLOADED IMAGES
+          </div>
+
+          <div
+            style={{
+              marginTop: 10,
+              background: '#fff',
+              border: '1px solid rgba(0,0,0,0.12)',
+              borderRadius: 14,
+              padding: 10,
+              boxShadow: '0 10px 25px rgba(0,0,0,0.05)',
+              display: 'grid',
+              gridTemplateColumns: 'repeat(3, 1fr)',
+              gap: 10,
+            }}
+          >
+            {[1, 2, 3].map((i) => (
+              <div
+                key={i}
+                style={{
+                  height: 52,
+                  borderRadius: 12,
+                  border: '1px solid rgba(0,0,0,0.10)',
+                  background: 'rgba(0,0,0,0.04)',
+                }}
+              />
+            ))}
+          </div>
+        </div>
+
+        <div>
+          <div style={{ fontWeight: 900, fontSize: 12, letterSpacing: 0.6, color: '#2b5b3a' }}>
+            SCAN HISTORY
+          </div>
+
+          <div
+            style={{
+              marginTop: 10,
+              background: '#fff',
+              border: '1px solid rgba(0,0,0,0.12)',
+              borderRadius: 14,
+              padding: 10,
+              boxShadow: '0 10px 25px rgba(0,0,0,0.05)',
+              display: 'grid',
+              gridTemplateColumns: 'repeat(3, 1fr)',
+              gap: 10,
+            }}
+          >
+            {[1, 2, 3].map((i) => (
+              <div
+                key={i}
+                style={{
+                  height: 52,
+                  borderRadius: 12,
+                  border: '1px solid rgba(0,0,0,0.10)',
+                  background: 'rgba(0,0,0,0.04)',
+                }}
+              />
+            ))}
+          </div>
+        </div>
       </div>
     </div>
-  );
+  </div>
+);
 
   const renderMonitoringAndManagement = () => (
     <div className="hiCard">
@@ -1067,6 +1671,47 @@ const renderAssessment = () => (
             ) : (
               <button className="hiBtn" type="button" onClick={saveNumber} disabled={savingKey === 'number'}>
                 {savingKey === 'number' ? 'Saving...' : 'Save'}
+              </button>
+            )}
+          </div>
+        </div>
+
+        <div className="hiBox">
+          <div className="hiBoxTitle">Birthday</div>
+          <input
+            className="hiInput"
+            type="date"
+            disabled={!editDob}
+            value={draft.dob}
+            onChange={onDraftChange('dob')}
+          />
+          <div className="hiActionsRow">
+            {!editDob ? (
+              <button className="hiBtn" onClick={() => setEditDob(true)}>Edit</button>
+            ) : (
+              <button className="hiBtn" onClick={saveDob} disabled={savingKey === 'dob'}>
+                {savingKey === 'dob' ? 'Saving...' : 'Save'}
+              </button>
+            )}
+          </div>
+        </div>
+
+        <div className="hiBox">
+          <div className="hiBoxTitle">Address</div>
+          <textarea
+            className="hiInput"
+            disabled={!editAddress}
+            value={draft.address}
+            onChange={onDraftChange('address')}
+            placeholder="Enter address"
+            style={{ minHeight: 80, resize: 'vertical' }}
+          />
+          <div className="hiActionsRow">
+            {!editAddress ? (
+              <button className="hiBtn" onClick={() => setEditAddress(true)}>Edit</button>
+            ) : (
+              <button className="hiBtn" onClick={saveAddress} disabled={savingKey === 'address'}>
+                {savingKey === 'address' ? 'Saving...' : 'Save'}
               </button>
             )}
           </div>
@@ -1205,7 +1850,7 @@ const renderAssessment = () => (
 
   const renderMain = () => {
     if (active === 'Dashboard') return renderDashboard();
-    if (active === 'Educational Content') return renderEducationalContent();
+    if (active === 'Learn Mycology') return renderLearn();
     if (active === 'Assessment') return renderAssessment();
     if (active === 'Model Library') return renderModelLibrary();
     if (active === 'Student Monitoring and Management') return renderMonitoringAndManagement();
@@ -1233,11 +1878,11 @@ const renderAssessment = () => (
 
             <button
               type="button"
-              className={`hiNavBtn ${active === 'Educational Content' ? 'active' : ''}`}
-              onClick={() => setActive('Educational Content')}
+              className={`hiNavBtn ${active === 'Learn Mycology' ? 'active' : ''}`}
+              onClick={() => setActive('Learn Mycology')}
             >
               <span className="hiDot" />
-              Educational Content
+              Learn Mycology
             </button>
 
             <button
