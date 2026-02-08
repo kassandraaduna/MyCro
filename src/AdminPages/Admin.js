@@ -653,7 +653,7 @@ function Admin() {
         <div className="auditTopRow">
           <div>
             <div className="adminTitle">Audit Logs</div>
-            <div className="adminSub">Track user activities: logins and registrations</div>
+            <div className="adminSub">Track user activities, logins, and registrations</div>
           </div>
 
           <div className="adInnerSearch">

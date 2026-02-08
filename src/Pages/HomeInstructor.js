@@ -1913,7 +1913,7 @@ function HomeInstructor() {
 
   const renderModelLibrary = () => (
     <div className="hiCard">
-<<<<<<< HEAD
+{/* HEAD */}
       <div className="hiPageTitle">Model Library</div>
       <div className="hiSub">Manage models, references, and downloadable resources.</div>
 
@@ -1928,176 +1928,176 @@ function HomeInstructor() {
     </div>
   );
 
-  const renderMonitoringAndManagement = () => (
-    <div className="hiCard">
-      <div className="hiTop">
-        <div className="hiTopLeft">
-          <div className="hiPageTitle" style={{ margin: 0 }}>Student Monitoring</div>
-          <div className="hiSub">Student list + how many times they took each assessment.</div>
-        </div>
+//   const renderMonitoringAndManagement = () => (
+//     <div className="hiCard">
+//       <div className="hiTop">
+//         <div className="hiTopLeft">
+//           <div className="hiPageTitle" style={{ margin: 0 }}>Student Monitoring</div>
+//           <div className="hiSub">Student list + how many times they took each assessment.</div>
+//         </div>
 
-        <div className="hiTopRight">
-          <button
-            type="button"
-            className="hiGhostBtn"
-            onClick={fetchMonitoring}
-            disabled={monitoringLoading}
-          >
-            Refresh
-          </button>
-        </div>
-      </div>
+//         <div className="hiTopRight">
+//           <button
+//             type="button"
+//             className="hiGhostBtn"
+//             onClick={fetchMonitoring}
+//             disabled={monitoringLoading}
+//           >
+//             Refresh
+//           </button>
+//         </div>
+//       </div>
 
-      {monitoringError ? <div style={{ marginTop: 12, fontWeight: 900, opacity: 0.75 }}>{monitoringError}</div> : null}
-      {monitoringLoading ? <div style={{ marginTop: 12, fontWeight: 900, opacity: 0.7 }}>Loading...</div> : null}
+//       {monitoringError ? <div style={{ marginTop: 12, fontWeight: 900, opacity: 0.75 }}>{monitoringError}</div> : null}
+//       {monitoringLoading ? <div style={{ marginTop: 12, fontWeight: 900, opacity: 0.7 }}>Loading...</div> : null}
 
-      {!monitoringLoading && monitoringData.length === 0 ? (
-        <div style={{ marginTop: 12, fontWeight: 900, opacity: 0.7 }}>
-          No student data yet.
-        </div>
-      ) : null}
+//       {!monitoringLoading && monitoringData.length === 0 ? (
+//         <div style={{ marginTop: 12, fontWeight: 900, opacity: 0.7 }}>
+//           No student data yet.
+//         </div>
+//       ) : null}
 
-      <div className="hiInnerCard" style={{ marginTop: 14, overflowX: 'auto' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 820 }}>
-          <thead>
-            <tr style={{ textAlign: 'left' }}>
-              <th style={{ padding: 10, fontWeight: 900 }}>Student</th>
-              <th style={{ padding: 10, fontWeight: 900 }}>Assessment</th>
-              <th style={{ padding: 10, fontWeight: 900 }}>Takes</th>
-              <th style={{ padding: 10, fontWeight: 900 }}>Last Score</th>
-              <th style={{ padding: 10, fontWeight: 900 }}>Last Submitted</th>
-            </tr>
-          </thead>
-          <tbody>
-            {monitoringData.flatMap((s) => {
-              const studentName = safeFullName(s) || s.studentName || '—';
-              const rows = (s.assessments || s.items || []).length ? (s.assessments || s.items) : [{ _empty: true }];
+//       <div className="hiInnerCard" style={{ marginTop: 14, overflowX: 'auto' }}>
+//         <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 820 }}>
+//           <thead>
+//             <tr style={{ textAlign: 'left' }}>
+//               <th style={{ padding: 10, fontWeight: 900 }}>Student</th>
+//               <th style={{ padding: 10, fontWeight: 900 }}>Assessment</th>
+//               <th style={{ padding: 10, fontWeight: 900 }}>Takes</th>
+//               <th style={{ padding: 10, fontWeight: 900 }}>Last Score</th>
+//               <th style={{ padding: 10, fontWeight: 900 }}>Last Submitted</th>
+//             </tr>
+//           </thead>
+//           <tbody>
+//             {monitoringData.flatMap((s) => {
+//               const studentName = safeFullName(s) || s.studentName || '—';
+//               const rows = (s.assessments || s.items || []).length ? (s.assessments || s.items) : [{ _empty: true }];
 
-              return rows.map((a, idx) => {
-                const takeCount = Number(a?.takeCount ?? a?.takes ?? a?.attemptCount ?? 0);
-                const hasTakes = !a?._empty && takeCount > 0;
+//               return rows.map((a, idx) => {
+//                 const takeCount = Number(a?.takeCount ?? a?.takes ?? a?.attemptCount ?? 0);
+//                 const hasTakes = !a?._empty && takeCount > 0;
 
-                return (
-                  <tr key={`${s.studentId || s._id || s.id}_${idx}`} style={{ borderTop: '1px solid rgba(0,0,0,0.08)' }}>
-                    <td style={{ padding: 10, fontWeight: 900 }}>
-                      {idx === 0 ? studentName : ''}
-                    </td>
+//                 return (
+//                   <tr key={`${s.studentId || s._id || s.id}_${idx}`} style={{ borderTop: '1px solid rgba(0,0,0,0.08)' }}>
+//                     <td style={{ padding: 10, fontWeight: 900 }}>
+//                       {idx === 0 ? studentName : ''}
+//                     </td>
 
-                    <td style={{ padding: 10, fontWeight: 800, opacity: 0.9 }}>
-                      {a._empty ? '—' : (a.title || a.assessmentTitle || 'Untitled')}
-                    </td>
+//                     <td style={{ padding: 10, fontWeight: 800, opacity: 0.9 }}>
+//                       {a._empty ? '—' : (a.title || a.assessmentTitle || 'Untitled')}
+//                     </td>
 
-                    <td style={{ padding: 10, fontWeight: 900 }}>
-                      {a._empty ? '—' : (
-                        hasTakes ? (
-                          <button
-                            type="button"
-                            className="hiGhostBtn"
-                            onClick={() => openTakesModal ({ student: s, assessment: a })}
-                            disabled={monitoringLoading}
-                            style={{ padding: '6px 10px', fontWeight: 900 }}
-                          >
-                            {takeCount} take{takeCount > 1 ? 's' : ''}
-                          </button>
-                        ) : (
-                          '0'
-                        )
-                      )}
-                    </td>
+//                     <td style={{ padding: 10, fontWeight: 900 }}>
+//                       {a._empty ? '—' : (
+//                         hasTakes ? (
+//                           <button
+//                             type="button"
+//                             className="hiGhostBtn"
+//                             onClick={() => openTakesModal ({ student: s, assessment: a })}
+//                             disabled={monitoringLoading}
+//                             style={{ padding: '6px 10px', fontWeight: 900 }}
+//                           >
+//                             {takeCount} take{takeCount > 1 ? 's' : ''}
+//                           </button>
+//                         ) : (
+//                           '0'
+//                         )
+//                       )}
+//                     </td>
 
-                    <td style={{ padding: 10, fontWeight: 900 }}>
-                      {a._empty
-                        ? '—'
-                        : (typeof a.lastPercent === 'number'
-                          ? `${a.lastPercent}% (${a.lastScore}/${a.lastTotal})`
-                          : (typeof a.lastScorePercent === 'number'
-                            ? `${a.lastScorePercent}%`
-                            : '—'))}
-                    </td>
+//                     <td style={{ padding: 10, fontWeight: 900 }}>
+//                       {a._empty
+//                         ? '—'
+//                         : (typeof a.lastPercent === 'number'
+//                           ? `${a.lastPercent}% (${a.lastScore}/${a.lastTotal})`
+//                           : (typeof a.lastScorePercent === 'number'
+//                             ? `${a.lastScorePercent}%`
+//                             : '—'))}
+//                     </td>
 
-                    <td style={{ padding: 10, fontWeight: 800, opacity: 0.85 }}>
-                      {a._empty ? '—' : (a.lastSubmittedAt ? formatDateTime(a.lastSubmittedAt) : '—')}
-                    </td>
-                  </tr>
-                );
-              });
-            })}
-          </tbody>
-        </table>
-      </div>
-=
-      {takesModalOpen ? (
-        <div className="hiModalOverlay" onMouseDown={closeTakesModal}>
-          <div className="hiModalCard" onMouseDown={(e) => e.stopPropagation()} style={{ maxWidth: 720 }}>
-            <button type="button" className="hiModalClose" onClick={closeTakesModal}>
-              ✕
-            </button>
+//                     <td style={{ padding: 10, fontWeight: 800, opacity: 0.85 }}>
+//                       {a._empty ? '—' : (a.lastSubmittedAt ? formatDateTime(a.lastSubmittedAt) : '—')}
+//                     </td>
+//                   </tr>
+//                 );
+//               });
+//             })}
+//           </tbody>
+//         </table>
+//       </div>
+// =
+//       {takesModalOpen ? (
+//         <div className="hiModalOverlay" onMouseDown={closeTakesModal}>
+//           <div className="hiModalCard" onMouseDown={(e) => e.stopPropagation()} style={{ maxWidth: 720 }}>
+//             <button type="button" className="hiModalClose" onClick={closeTakesModal}>
+//               ✕
+//             </button>
 
-            <div className="hiModalHead">
-              <div className="hiModalTitle">{takesModalTitle}</div>
-              <div className="hiModalSub">{takesModalSubtitle} • Attempts history</div>
-            </div>
+//             <div className="hiModalHead">
+//               <div className="hiModalTitle">{takesModalTitle}</div>
+//               <div className="hiModalSub">{takesModalSubtitle} • Attempts history</div>
+//             </div>
 
-            {takesModalLoading ? (
-              <div style={{ marginTop: 10, fontWeight: 900, opacity: 0.7 }}>Loading attempts...</div>
-            ) : null}
+//             {takesModalLoading ? (
+//               <div style={{ marginTop: 10, fontWeight: 900, opacity: 0.7 }}>Loading attempts...</div>
+//             ) : null}
 
-            {!takesModalLoading && (!takesModalAttempts || takesModalAttempts.length === 0) ? (
-              <div style={{ marginTop: 10, fontWeight: 900, opacity: 0.75 }}>
-                No attempts data available for this student and assessment.
-              </div>
-            ) : null}
+//             {!takesModalLoading && (!takesModalAttempts || takesModalAttempts.length === 0) ? (
+//               <div style={{ marginTop: 10, fontWeight: 900, opacity: 0.75 }}>
+//                 No attempts data available for this student and assessment.
+//               </div>
+//             ) : null}
 
-            {!takesModalLoading && Array.isArray(takesModalAttempts) && takesModalAttempts.length ? (
-              <div className="hiInnerCard" style={{ marginTop: 12, padding: 0, overflow: 'hidden' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                  <thead>
-                    <tr style={{ textAlign: 'left' }}>
-                      <th style={{ padding: 10, fontWeight: 900 }}>#</th>
-                      <th style={{ padding: 10, fontWeight: 900 }}>Submitted</th>
-                      <th style={{ padding: 10, fontWeight: 900 }}>Score</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {takesModalAttempts.map((t, i) => {
-                      const submittedAt = t.submittedAt || t.createdAt || t.date || t.takenAt;
-                      const percent = (typeof t.percent === 'number') ? t.percent : (typeof t.scorePercent === 'number' ? t.scorePercent : null);
-                      const score = (typeof t.score === 'number') ? t.score : t.lastScore;
-                      const total = (typeof t.total === 'number') ? t.total : t.lastTotal;
+//             {!takesModalLoading && Array.isArray(takesModalAttempts) && takesModalAttempts.length ? (
+//               <div className="hiInnerCard" style={{ marginTop: 12, padding: 0, overflow: 'hidden' }}>
+//                 <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+//                   <thead>
+//                     <tr style={{ textAlign: 'left' }}>
+//                       <th style={{ padding: 10, fontWeight: 900 }}>#</th>
+//                       <th style={{ padding: 10, fontWeight: 900 }}>Submitted</th>
+//                       <th style={{ padding: 10, fontWeight: 900 }}>Score</th>
+//                     </tr>
+//                   </thead>
+//                   <tbody>
+//                     {takesModalAttempts.map((t, i) => {
+//                       const submittedAt = t.submittedAt || t.createdAt || t.date || t.takenAt;
+//                       const percent = (typeof t.percent === 'number') ? t.percent : (typeof t.scorePercent === 'number' ? t.scorePercent : null);
+//                       const score = (typeof t.score === 'number') ? t.score : t.lastScore;
+//                       const total = (typeof t.total === 'number') ? t.total : t.lastTotal;
 
-                      return (
-                        <tr key={i} style={{ borderTop: '1px solid rgba(0,0,0,0.08)' }}>
-                          <td style={{ padding: 10, fontWeight: 900 }}>{i + 1}</td>
-                          <td style={{ padding: 10, fontWeight: 800, opacity: 0.85 }}>{formatDateTime(submittedAt)}</td>
-                          <td style={{ padding: 10, fontWeight: 900 }}>
-                            {percent != null
-                              ? `${percent}%${(typeof score === 'number' && typeof total === 'number') ? ` (${score}/${total})` : ''}`
-                              : ((typeof score === 'number' && typeof total === 'number') ? `${score}/${total}` : '—')}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            ) : null}
+//                       return (
+//                         <tr key={i} style={{ borderTop: '1px solid rgba(0,0,0,0.08)' }}>
+//                           <td style={{ padding: 10, fontWeight: 900 }}>{i + 1}</td>
+//                           <td style={{ padding: 10, fontWeight: 800, opacity: 0.85 }}>{formatDateTime(submittedAt)}</td>
+//                           <td style={{ padding: 10, fontWeight: 900 }}>
+//                             {percent != null
+//                               ? `${percent}%${(typeof score === 'number' && typeof total === 'number') ? ` (${score}/${total})` : ''}`
+//                               : ((typeof score === 'number' && typeof total === 'number') ? `${score}/${total}` : '—')}
+//                           </td>
+//                         </tr>
+//                       );
+//                     })}
+//                   </tbody>
+//                 </table>
+//               </div>
+//             ) : null}
 
-            <div className="hiModalActions">
-              <button type="button" className="hiGhostBtn" onClick={closeTakesModal} disabled={takesModalLoading}>
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
-      ) : null}
-    </div>
-=======
-      <div className="hiCardHead">
-        <div className="hiCardTitle">Model Library</div>
-        <div className="hiCardSub">Content placeholder</div>
-      </div>
-    </div>
-  );
+//             <div className="hiModalActions">
+//               <button type="button" className="hiGhostBtn" onClick={closeTakesModal} disabled={takesModalLoading}>
+//                 Close
+//               </button>
+//             </div>
+//           </div>
+//         </div>
+//       ) : null}
+//     </div>
+
+//       <div className="hiCardHead">
+//         <div className="hiCardTitle">Model Library</div>
+//         <div className="hiCardSub">Content placeholder</div>
+//       </div>
+//     </div>
+//   );
 
   const renderMonitoringAndManagement = () => (
     <div className="hiCard" style={{ padding: 16 }}>
@@ -2470,7 +2470,6 @@ function HomeInstructor() {
           </div>
         </div>
       </div>
->>>>>>> def8c57a070490daabaf052025f94b1af74388ff
   );
 
   const renderProfile = () => (
