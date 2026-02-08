@@ -3,12 +3,34 @@ import axios from 'axios';
 import { useLocation, useNavigate } from 'react-router-dom';
 import './HomeStudent.css';
 
+const API = 'http://localhost:8000/api';
+
+const monthNames = [
+  'January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December',
+];
+
+function formatDOB(iso) {
+  if (!iso) return '';
+  const [y, m, d] = String(iso).split('-').map((x) => Number(x));
+  if (!y || !m || !d) return '';
+  const month = monthNames[m - 1] || '';
+  return `${month} ${d}, ${y}`;
+}
+
+function initialsOf(name) {
+  const s = String(name || '').trim();
+  if (!s) return 'S';
+  const parts = s.split(/\s+/).slice(0, 2);
+  return parts.map((p) => p[0]?.toUpperCase()).join('') || 'S';
+}
+
 function HomePageStudent() {
   const navigate = useNavigate();
   const location = useLocation();
 
-  const [search, setSearch] = useState('');
   const [active, setActive] = useState('Dashboard');
+  const [sideOpen, setSideOpen] = useState(true);
 
   const [user, setUser] = useState(null);
 
@@ -18,7 +40,6 @@ function HomePageStudent() {
     email: '',
     number: '',
     dob: '',
-    address: '',
   });
 
   const [draft, setDraft] = useState({
@@ -27,15 +48,14 @@ function HomePageStudent() {
     email: '',
     number: '',
     dob: '',
-    address: '',
   });
 
   const [editName, setEditName] = useState(false);
   const [editEmail, setEditEmail] = useState(false);
   const [editNumber, setEditNumber] = useState(false);
-  const [editPassword, setEditPassword] = useState(false);
   const [editDob, setEditDob] = useState(false);
-  const [editAddress, setEditAddress] = useState(false);
+
+  const [showChangePass, setShowChangePass] = useState(false);
 
   const [passDraft, setPassDraft] = useState({
     currentPassword: '',
@@ -56,17 +76,62 @@ function HomePageStudent() {
   const [assessError, setAssessError] = useState('');
   const [assessments, setAssessments] = useState([]);
 
-  const [assessView, setAssessView] = useState('list');
+  const [assessView, setAssessView] = useState('list'); 
   const [selectedAssess, setSelectedAssess] = useState(null);
 
   const [answersMap, setAnswersMap] = useState({});
   const [submitLoading, setSubmitLoading] = useState(false);
-
   const [result, setResult] = useState(null);
 
   const [timeLeft, setTimeLeft] = useState(null);
+  const [timerTotal, setTimerTotal] = useState(null);
   const timerRef = useRef(null);
   const startedAtRef = useRef(null);
+
+  const SCORE_KEY = 'studentAssessmentResults_v1';
+  const readScoreStore = () => {
+    try {
+      const raw = localStorage.getItem(SCORE_KEY);
+      return raw ? JSON.parse(raw) : {};
+    } catch {
+      return {};
+    }
+  };
+  const writeScoreStore = (next) => {
+    try {
+      localStorage.setItem(SCORE_KEY, JSON.stringify(next || {}));
+    } catch {}
+  };
+
+  const [lessonsLoading, setLessonsLoading] = useState(false);
+  const [lessonsError, setLessonsError] = useState('');
+  const [lessons, setLessons] = useState([]);
+
+  const [showLessonModal, setShowLessonModal] = useState(false);
+  const [viewLesson, setViewLesson] = useState(null);
+
+  const openLessonModal = (lesson) => {
+    setViewLesson(lesson);
+    setShowLessonModal(true);
+  };
+
+  const closeLessonModal = () => {
+    setShowLessonModal(false);
+    setViewLesson(null);
+  };
+
+  const fetchLessons = async () => {
+    try {
+      setLessonsLoading(true);
+      setLessonsError('');
+      const res = await axios.get(`${API}/lessons`);
+      setLessons(Array.isArray(res.data?.data) ? res.data.data : []);
+    } catch (e) {
+      setLessonsError(e?.response?.data?.message || 'Failed to load lessons.');
+    } finally {
+      setLessonsLoading(false);
+    }
+  };
 
   useEffect(() => {
     let u = null;
@@ -95,7 +160,6 @@ function HomePageStudent() {
       email: user?.email || '',
       number: user?.number || '',
       dob: user?.dob ? user.dob.slice(0, 10) : '',
-      address: user?.address || '',
     };
 
     setSaved(base);
@@ -104,9 +168,8 @@ function HomePageStudent() {
     setEditName(false);
     setEditEmail(false);
     setEditNumber(false);
-    setEditPassword(false);
     setEditDob(false);
-    setEditAddress(false);
+
     setPassDraft({
       currentPassword: '',
       newPassword: '',
@@ -116,30 +179,33 @@ function HomePageStudent() {
       maskedEmail: '',
       expiresAt: '',
     });
+
+    setShowChangePass(false);
   }, [user]);
 
   const userId = user?._id || '';
 
   const usernameLabel = useMemo(() => {
-    if (!user) return 'username';
+    if (!user) return 'student';
     if (user.username) return user.username;
     const full = `${user.fname || ''} ${user.lname || ''}`.trim();
-    return full || user.email || 'username';
+    return full || user.email || 'student';
   }, [user]);
+
+  const welcomeInitials = useMemo(
+    () => initialsOf(`${user?.fname || ''} ${user?.lname || ''}`),
+    [user]
+  );
 
   const handleLogout = () => {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
-    navigate('/Landing');
+    navigate('/landing');
   };
 
   const handleLogoutConfirm = () => {
     setShowStayOrLogout(false);
     handleLogout();
-  };
-
-  const handleSearch = (e) => {
-    e.preventDefault();
   };
 
   const onDraftChange = (field) => (e) =>
@@ -166,14 +232,19 @@ function HomePageStudent() {
 
   const putUpdate = async (payload) => {
     if (!userId) {
-      alert('Walang userId. Mag-login ulit.');
-      navigate('/Login');
+      alert('Student not logged in properly. Please login again.');
+      navigate('/login');
       return null;
     }
 
-    const url = `http://localhost:8000/api/meds/${userId}`;
+    const url = `${API}/meds/${userId}`;
     const res = await axios.put(url, payload);
-    return res.data;
+
+    const returned = res.data;
+    if (returned && typeof returned === 'object') {
+      return { ...user, ...returned, ...payload };
+    }
+    return returned;
   };
 
   const validateEmail = (email) => {
@@ -263,7 +334,6 @@ function HomePageStudent() {
   const saveDob = async () => {
     try {
       setSavingKey('dob');
-
       const updated = await putUpdate({ dob: draft.dob });
       if (!updated) return;
 
@@ -278,26 +348,32 @@ function HomePageStudent() {
     }
   };
 
-  const saveAddress = async () => {
-    if (!draft.address.trim()) return alert('Address cannot be empty.');
-
-    try {
-      setSavingKey('address');
-
-      const updated = await putUpdate({ address: draft.address.trim() });
-      if (!updated) return;
-
-      localStorage.setItem('user', JSON.stringify(updated));
-      setUser(updated);
-      setEditAddress(false);
-      alert('Address updated!');
-    } catch (e) {
-      alert(e?.response?.data?.message || 'Failed to update address.');
-    } finally {
-      setSavingKey('');
-    }
+  const openChangePassModal = () => {
+    setPassDraft({
+      currentPassword: '',
+      newPassword: '',
+      confirmNewPassword: '',
+      otpCode: '',
+      otpId: '',
+      maskedEmail: '',
+      expiresAt: '',
+    });
+    setShowChangePass(true);
   };
 
+  const closeChangePassModal = () => {
+    if (savingKey === 'password') return;
+    setShowChangePass(false);
+    setPassDraft({
+      currentPassword: '',
+      newPassword: '',
+      confirmNewPassword: '',
+      otpCode: '',
+      otpId: '',
+      maskedEmail: '',
+      expiresAt: '',
+    });
+  };
 
   const savePassword = async () => {
     const err = validatePassword();
@@ -307,7 +383,7 @@ function HomePageStudent() {
       setSavingKey('password');
 
       if (passDraft.otpId && passDraft.otpCode) {
-        const res = await axios.post('http://localhost:8000/api/auth/change-password', {
+        const res = await axios.post(`${API}/auth/change-password`, {
           userId,
           currentPassword: passDraft.currentPassword,
           newPassword: passDraft.newPassword,
@@ -325,14 +401,13 @@ function HomePageStudent() {
             maskedEmail: '',
             expiresAt: '',
           });
-          setEditPassword(false);
-
+          setShowChangePass(false);
           setShowStayOrLogout(true);
         }
         return;
       }
 
-      const res = await axios.post('http://localhost:8000/api/auth/change-password', {
+      const res = await axios.post(`${API}/auth/change-password`, {
         userId,
         currentPassword: passDraft.currentPassword,
         newPassword: passDraft.newPassword,
@@ -360,7 +435,7 @@ function HomePageStudent() {
   const resendChangePassOtp = async () => {
     try {
       setSavingKey('password');
-      const res = await axios.post('http://localhost:8000/api/auth/resend-change-password-otp', {
+      const res = await axios.post(`${API}/auth/resend-change-password-otp`, {
         userId,
       });
 
@@ -388,6 +463,7 @@ function HomePageStudent() {
     stopTimer();
     startedAtRef.current = null;
     setTimeLeft(null);
+    setTimerTotal(null);
     setAssessView('list');
     setSelectedAssess(null);
     setAnswersMap({});
@@ -400,8 +476,9 @@ function HomePageStudent() {
     try {
       setAssessLoading(true);
       setAssessError('');
-      const res = await axios.get('http://localhost:8000/api/assessments');
-      setAssessments(Array.isArray(res.data) ? res.data : (res.data?.data || []));
+      const res = await axios.get(`${API}/assessments`);
+      const data = res.data?.data || res.data || [];
+      setAssessments(Array.isArray(data) ? data : []);
     } catch (e) {
       setAssessError(e?.response?.data?.message || 'Failed to load assessments.');
     } finally {
@@ -413,7 +490,7 @@ function HomePageStudent() {
     try {
       setAssessLoading(true);
       setAssessError('');
-      const res = await axios.get(`http://localhost:8000/api/assessments/${assessmentId}`);
+      const res = await axios.get(`${API}/assessments/${assessmentId}`);
       const a = res.data?.data || res.data;
       setSelectedAssess(a);
       setAssessView('details');
@@ -435,11 +512,18 @@ function HomePageStudent() {
     stopTimer();
     startedAtRef.current = Date.now();
 
-    const hasTimer = Boolean(selectedAssess?.timer?.enabled);
-    const timerSeconds = hasTimer ? Number(selectedAssess?.timer?.minutes || 0) * 60 : 0;
+    const hasTimer =
+      Boolean(selectedAssess?.timer?.enabled) || Boolean(selectedAssess?.timerEnabled);
+
+    const timerMinutes =
+      Number(selectedAssess?.timer?.minutes || 0) ||
+      Math.round(Number(selectedAssess?.timerSeconds || 0) / 60);
+
+    const timerSeconds = hasTimer ? Math.max(0, Number(timerMinutes) * 60) : 0;
 
     if (hasTimer && timerSeconds > 0) {
       setTimeLeft(timerSeconds);
+      setTimerTotal(timerSeconds);
 
       timerRef.current = setInterval(() => {
         setTimeLeft((prev) => {
@@ -459,6 +543,7 @@ function HomePageStudent() {
       }, 1000);
     } else {
       setTimeLeft(null);
+      setTimerTotal(null);
     }
   };
 
@@ -477,8 +562,9 @@ function HomePageStudent() {
 
     const qs = Array.isArray(selectedAssess?.questions) ? selectedAssess.questions : [];
     const unanswered = qs.filter((q) => answersMap[q._id] === undefined);
+
     if (unanswered.length > 0 && !auto) {
-      if (!window.confirm(`May ${unanswered.length} unanswered. Submit pa rin?`)) return;
+      if (!window.confirm(`You have ${unanswered.length} unanswered question(s). Are you sure you want to submit?`)) return;
     }
 
     try {
@@ -486,8 +572,12 @@ function HomePageStudent() {
       setAssessError('');
       stopTimer();
 
+      if (!userId) {
+        alert('Student not logged in properly. Please login again.');
+        return;
+      }
       const payload = {
-        studentId: userId || null,
+        studentId: userId,
         answers: qs.map((q) => ({
           questionId: q._id,
           selectedIndex: answersMap[q._id] ?? null,
@@ -496,11 +586,22 @@ function HomePageStudent() {
       };
 
       const res = await axios.post(
-        `http://localhost:8000/api/assessments/${selectedAssess._id}/submit`,
+        `${API}/assessments/${selectedAssess._id}/submit`,
         payload
       );
 
       const data = res.data?.data || res.data;
+
+      const store = readScoreStore();
+      const next = {
+        ...store,
+        [selectedAssess._id]: {
+          ...data,
+          submittedAt: new Date().toISOString(),
+        },
+      };
+      writeScoreStore(next);
+
       setResult(data);
       setAssessView('result');
     } catch (e) {
@@ -518,7 +619,12 @@ function HomePageStudent() {
   };
 
   useEffect(() => {
-    if (active !== 'Assesment') return;
+    if (active !== 'Learn Mycology') return;
+    fetchLessons();
+  }, [active]);
+
+  useEffect(() => {
+    if (active !== 'Assessment') return;
     fetchAssessments();
   }, [active]);
 
@@ -527,1120 +633,644 @@ function HomePageStudent() {
   }, []);
 
   const renderDashboard = () => (
-  <div className="hpCard" style={{ padding: 16 }}>
-    <div className="hpCardHead" style={{ marginBottom: 14 }}>
-      <div className="hpCardTitle" style={{ fontWeight: 900, fontSize: 20 }}>Dashboard</div>
-      <div className="hpCardSub" style={{ color: '#8a8a8a', fontWeight: 700 }}>
-        Explore MyphoLens — quick access, recent scans, and progress.
-      </div>
-    </div>
-
-    <div
-      style={{
-        display: 'grid',
-        gridTemplateColumns: '1fr 340px',
-        gap: 14,
-        alignItems: 'start',
-      }}
-    >
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-        <div
-          style={{
-            border: '1px solid rgba(0,0,0,0.08)',
-            borderRadius: 14,
-            padding: 14,
-            background: '#fff',
-          }}
-        >
-          <div style={{ fontWeight: 900, letterSpacing: 0.3, marginBottom: 10, color: '#2b5b3a' }}>
-            EXPLORE MYPHOLENS
-          </div>
-
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(6, minmax(0, 1fr))',
-              gap: 10,
-            }}
-          >
-            {[
-              { label: 'AI Classifier' },
-              { label: '3D Models' },
-              { label: 'Learn' },
-              { label: 'Assessments' },
-              { label: 'Bookmarks' },
-              { label: 'Scan History' },
-            ].map((item) => (
-              <button
-                key={item.label}
-                type="button"
-                style={{
-                  border: '1px solid rgba(255, 105, 180, 0.35)',
-                  borderRadius: 12,
-                  padding: '14px 10px',
-                  background: '#fff',
-                  fontWeight: 900,
-                  fontSize: 11,
-                  cursor: 'pointer',
-                }}
-                onClick={() => {}}
-              >
-                <div
-                  style={{
-                    width: 34,
-                    height: 34,
-                    borderRadius: 10,
-                    border: '1px dashed rgba(255, 105, 180, 0.55)',
-                    margin: '0 auto 8px',
-                  }}
-                />
-                {item.label.toUpperCase()}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div
-          style={{
-            border: '1px solid rgba(0,0,0,0.08)',
-            borderRadius: 14,
-            padding: 14,
-            background: '#fff',
-          }}
-        >
-          <div style={{ fontWeight: 900, letterSpacing: 0.3, marginBottom: 10, color: '#2b5b3a' }}>
-            LATEST ASSESSMENT SCORE
-          </div>
-
-          <div
-            style={{
-              borderRadius: 14,
-              padding: 14,
-              background: 'rgba(160, 220, 140, 0.45)',
-              border: '1px solid rgba(0,0,0,0.08)',
-              display: 'flex',
-              gap: 12,
-              alignItems: 'center',
-              justifyContent: 'space-between',
-            }}
-          >
-            <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-              <div
-                style={{
-                  width: 44,
-                  height: 44,
-                  borderRadius: 999,
-                  background: 'rgba(0,0,0,0.06)',
-                }}
-              />
-              <div>
-                <div style={{ fontWeight: 900, fontSize: 12 }}>
-                  ASSESSMENT NAME <span style={{ fontWeight: 700, opacity: 0.7 }}>(attempts: 1)</span>
-                </div>
-                <div style={{ fontSize: 12, fontWeight: 700, opacity: 0.75, marginTop: 4 }}>
-                  Excellent identification of all fungi units! Keep it up!
-                </div>
-              </div>
-            </div>
-
-            <div style={{ textAlign: 'right' }}>
-              <div style={{ fontWeight: 900, fontSize: 12 }}>90/100</div>
-              <button
-                type="button"
-                style={{
-                  marginTop: 8,
-                  padding: '6px 14px',
-                  borderRadius: 999,
-                  border: '1px solid rgba(0,0,0,0.18)',
-                  background: '#fff',
-                  fontWeight: 900,
-                  fontSize: 11,
-                  cursor: 'pointer',
-                }}
-                onClick={() => {}}
-              >
-                VIEW
-              </button>
-            </div>
-          </div>
-        </div>
-
-        <div
-          style={{
-            border: '1px solid rgba(0,0,0,0.08)',
-            borderRadius: 14,
-            padding: 14,
-            background: '#fff',
-          }}
-        >
-          <div style={{ fontWeight: 900, letterSpacing: 0.3, marginBottom: 10, color: '#2b5b3a' }}>
-            RECENTLY VIEWED TOPICS
-          </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 12 }}>
-            {[
-              'CHARACTERISTICS OF FUNGI',
-              'BASIC MORPHOLOGICAL FORMS',
-              'FUNDAMENTAL UNIT OF FUNGI',
-            ].map((t) => (
-              <div
-                key={t}
-                style={{
-                  border: '1px solid rgba(255, 105, 180, 0.35)',
-                  borderRadius: 14,
-                  padding: 12,
-                  background: '#fff',
-                }}
-              >
-                <div
-                  style={{
-                    height: 86,
-                    borderRadius: 12,
-                    border: '1px dashed rgba(255, 105, 180, 0.55)',
-                    marginBottom: 10,
-                  }}
-                />
-                <div style={{ fontWeight: 900, fontSize: 11, textAlign: 'center' }}>{t}</div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <div
-          style={{
-            border: '1px solid rgba(0,0,0,0.08)',
-            borderRadius: 14,
-            padding: 14,
-            background: '#fff',
-          }}
-        >
-          <div style={{ fontWeight: 900, letterSpacing: 0.3, marginBottom: 10, color: '#2b5b3a' }}>
-            RECENTLY VIEWED MODELS
-          </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 12 }}>
-            {['YEAST', 'BUDDING YEAST', 'PSEUDOHYPHAE'].map((m) => (
-              <div
-                key={m}
-                style={{
-                  border: '1px solid rgba(255, 105, 180, 0.35)',
-                  borderRadius: 14,
-                  padding: 12,
-                  background: '#fff',
-                }}
-              >
-                <div
-                  style={{
-                    height: 92,
-                    borderRadius: 12,
-                    border: '1px dashed rgba(255, 105, 180, 0.55)',
-                    marginBottom: 10,
-                  }}
-                />
-                <div style={{ fontWeight: 900, fontSize: 11, textAlign: 'center' }}>{m}</div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      <div
-        style={{
-          border: '1px solid rgba(0,0,0,0.08)',
-          borderRadius: 14,
-          padding: 14,
-          background: '#fff',
-          position: 'sticky',
-          top: 12,
-        }}
-      >
-        <div style={{ fontWeight: 900, letterSpacing: 0.3, marginBottom: 10, color: '#2b5b3a' }}>
-          RECENT SCANS
-        </div>
-
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          {Array.from({ length: 6 }).map((_, idx) => (
-            <div
-              key={idx}
-              style={{
-                border: '1px solid rgba(255, 105, 180, 0.25)',
-                borderRadius: 14,
-                padding: 10,
-                display: 'grid',
-                gridTemplateColumns: '72px 1fr',
-                gap: 10,
-                alignItems: 'center',
-              }}
-            >
-              <div
-                style={{
-                  width: 72,
-                  height: 56,
-                  borderRadius: 12,
-                  background: 'rgba(0,0,0,0.06)',
-                }}
-              />
-              <div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
-                  <div style={{ fontWeight: 900, fontSize: 12 }}>YEAST</div>
-                  <div
-                    style={{
-                      width: 14,
-                      height: 18,
-                      borderRadius: 3,
-                      background: 'rgba(0,0,0,0.08)',
-                    }}
-                  />
-                </div>
-                <div style={{ fontSize: 10, fontWeight: 800, opacity: 0.7, marginTop: 2 }}>
-                  date & time • confidence score
-                </div>
-                <div style={{ fontSize: 10, fontWeight: 700, opacity: 0.7, marginTop: 6 }}>
-                  Short description/overview about the AI classification.
-                </div>
-
-                <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
-                  <button
-                    type="button"
-                    style={{
-                      padding: '6px 10px',
-                      borderRadius: 999,
-                      border: '1px solid rgba(255, 105, 180, 0.45)',
-                      background: '#fff',
-                      fontWeight: 900,
-                      fontSize: 10,
-                      cursor: 'pointer',
-                    }}
-                    onClick={() => {}}
-                  >
-                    LEARN MORE
-                  </button>
-
-                  <button
-                    type="button"
-                    style={{
-                      padding: '6px 10px',
-                      borderRadius: 999,
-                      border: '1px solid rgba(0,0,0,0.18)',
-                      background: '#fff',
-                      fontWeight: 900,
-                      fontSize: 10,
-                      cursor: 'pointer',
-                    }}
-                    onClick={() => {}}
-                  >
-                    VIEW MODEL
-                  </button>
-                </div>
-              </div>
-            </div>
-          ))}
+    <div className="hpCard">
+      <div className="hpPageTitle">Dashboard</div>
+      <div className="hpInnerCard">
+        <div className="hpWelcomeCard">
+          <div className="hpWelcomeCardTitle">Welcome, {usernameLabel}</div>
+          <div className="hpWelcomeCardSub">Explore pages using the sidebar.</div>
         </div>
       </div>
     </div>
-  </div>
-);
+  );
 
   const renderLearn = () => (
-  <div className="hpCard" style={{ padding: 16 }}>
-    <div style={{ textAlign: 'center', marginTop: 6, marginBottom: 22 }}>
-      <div style={{ fontWeight: 900, letterSpacing: 1.2, fontSize: 20, color: '#2b5b3a' }}>
-        LEARN MYCOLOGY
-      </div>
-    </div>
-
-    <div style={{ fontWeight: 900, letterSpacing: 0.8, marginBottom: 12, color: '#2b5b3a' }}>
-      TOPICS
-    </div>
-
-    <div
-      style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
-        gap: 14,
-        maxWidth: 680,
-        margin: '0 auto',
-      }}
-    >
-      {[
-        { title: 'CHARACTERISTICS OF FUNGI' },
-        { title: 'FUNGI GROUPS' },
-        { title: 'BASIC MORPHOLOGICAL FORMS' },
-        { title: 'DIAGNOSTIC MYCOLOGY' },
-        { title: 'FUNDAMENTAL UNIT OF FUNGI' },
-        { title: 'MYCOSES' },
-      ].map((t) => (
-        <button
-          key={t.title}
-          type="button"
-          onClick={() => {}}
-          style={{
-            textAlign: 'center',
-            padding: '18px 14px',
-            borderRadius: 12,
-            border: '1px solid rgba(0,0,0,0.18)',
-            background: 'rgba(170, 210, 160, 0.55)',
-            cursor: 'pointer',
-            minHeight: 84,
-          }}
-        >
-          <div style={{ fontWeight: 900, fontSize: 12, color: '#2b5b3a' }}>
-            {t.title}
-          </div>
-          <div style={{ fontWeight: 800, fontSize: 10, opacity: 0.65, marginTop: 8 }}>
-            TOPIC DESCRIPTION
-          </div>
-        </button>
-      ))}
-    </div>
-  </div>
-);
-
-  const renderAssesment = () => (
     <div className="hpCard">
-      <div className="hpCardHead" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
-        <div>
-          <div className="hpCardTitle">Assesment</div>
-          <div className="hpCardSub">Answer available assessments created by instructors</div>
+      <div className="hpTop">
+        <div className="hpTopLeft">
+          <div className="hpPageTitle" style={{ margin: 0 }}>Learn Mycology</div>
+          <div className="hpSub">Lessons posted by instructors.</div>
         </div>
 
-        <div style={{ display: 'flex', gap: 8 }}>
-          <button
-            type="button"
-            className="hpBtn"
-            onClick={fetchAssessments}
-            disabled={assessLoading}
-            style={{ padding: '10px 14px' }}
-          >
-            {assessLoading ? 'Loading...' : 'Refresh'}
+        <div className="hpTopRight">
+          <button type="button" className="hpGhostBtn" onClick={fetchLessons} disabled={lessonsLoading}>
+            Refresh
           </button>
-
-          {assessView !== 'list' ? (
-            <button
-              type="button"
-              className="hpBtn"
-              onClick={resetAssessmentUI}
-              style={{ padding: '10px 14px' }}
-              disabled={submitLoading}
-            >
-              Back to list
-            </button>
-          ) : null}
         </div>
       </div>
 
-      {assessError ? (
-        <div style={{ marginTop: 12, color: '#b00020', fontWeight: 700 }}>
-          {assessError}
-        </div>
-      ) : null}
+      {lessonsError ? <div className="hpInlineError">{lessonsError}</div> : null}
+      {lessonsLoading ? <div style={{ marginTop: 12, fontWeight: 800, opacity: 0.7 }}>Loading...</div> : null}
 
-      {assessView === 'list' && (
-        <div style={{ marginTop: 16 }}>
-          {assessLoading ? (
-            <div style={{ opacity: 0.7 }}>Loading assessments...</div>
-          ) : null}
+      <div className="hpCardsGrid" style={{ marginTop: 12 }}>
+        {lessons.map((l) => (
+          <div key={l._id} className="hpInnerCard">
+            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'center' }}>
+              <div style={{ fontWeight: 900 }}>{l.title}</div>
 
-          {!assessLoading && assessments.length === 0 ? (
-            <div style={{ opacity: 0.75 }}>No assessments available yet.</div>
-          ) : null}
-
-          <div style={{ display: 'grid', gap: 12 }}>
-            {assessments.map((a) => (
-              <div
-                key={a._id}
-                style={{
-                  border: '1px solid rgba(0,0,0,0.12)',
-                  borderRadius: 14,
-                  padding: 14,
-                  background: 'rgba(255,255,255,0.65)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  gap: 12,
-                }}
-              >
-                <div style={{ minWidth: 0 }}>
-                  <div style={{ fontWeight: 900, color: '#3f5f4a', letterSpacing: 0.4 }}>
-                    {a.title || 'Untitled Assessment'}
-                  </div>
-                  <div style={{ fontSize: 12, opacity: 0.75, marginTop: 4 }}>
-                    {a.timerEnabled
-                      ? `Timed • ${Math.round(Number(a.timerSeconds || 0) / 60)} min`
-                      : 'No timer'}
-                    {typeof a.totalPoints === 'number' ? ` • ${a.totalPoints} pts` : ''}
-                  </div>
-                </div>
-
+              <div style={{ display: 'flex', gap: 8 }}>
                 <button
                   type="button"
-                  className="hpBtn"
-                  onClick={() => openAssessmentDetails(a._id)}
-                  style={{ padding: '10px 14px', whiteSpace: 'nowrap' }}
-                  disabled={assessLoading}
+                  className="hpPrimaryBtn"
+                  style={{ padding: '8px 12px', fontSize: 13 }}
+                  onClick={() => openLessonModal(l)}
                 >
-                  Open
+                  View
                 </button>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {assessView === 'details' && selectedAssess && (
-        <div style={{ marginTop: 16 }}>
-          <div style={{ fontWeight: 900, fontSize: 18, color: '#3f5f4a' }}>
-            {selectedAssess.title || 'Untitled Assessment'}
-          </div>
-
-          <div style={{ marginTop: 6, fontSize: 12, opacity: 0.75 }}>
-            {selectedAssess.timerEnabled
-              ? `Timer: ${Math.round(Number(selectedAssess.timerSeconds || 0) / 60)} minutes`
-              : 'Timer: none'}
-            {Array.isArray(selectedAssess.questions)
-              ? ` • Questions: ${selectedAssess.questions.length}`
-              : ''}
-          </div>
-
-          <div style={{ marginTop: 14, display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-            <button
-              type="button"
-              className="hpBtn"
-              onClick={startTakingAssessment}
-              style={{ padding: '10px 16px' }}
-              disabled={assessLoading}
-            >
-              Start
-            </button>
-          </div>
-
-          <div style={{ marginTop: 16, fontSize: 12, opacity: 0.85 }}>
-            Tip: Make sure stable internet before submitting.
-          </div>
-        </div>
-      )}
-
-      {assessView === 'take' && selectedAssess && (
-        <div style={{ marginTop: 16 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>
-            <div>
-              <div style={{ fontWeight: 900, fontSize: 18, color: '#3f5f4a' }}>
-                {selectedAssess.title || 'Assessment'}
-              </div>
-              <div style={{ fontSize: 12, opacity: 0.75, marginTop: 4 }}>
-                Answer all questions then submit.
               </div>
             </div>
 
-            {selectedAssess.timerEnabled && typeof timeLeft === 'number' ? (
-              <div
-                style={{
-                  padding: '10px 12px',
-                  borderRadius: 12,
-                  border: '1px solid rgba(0,0,0,0.15)',
-                  background: 'rgba(255,255,255,0.75)',
-                  fontWeight: 900,
-                  minWidth: 90,
-                  textAlign: 'center',
-                }}
-              >
-                {formatTime(timeLeft)}
+            {l.educationalContent ? (
+              <div style={{ marginTop: 6, opacity: 0.8, fontWeight: 700 }}>
+                {String(l.educationalContent).slice(0, 140)}
+                {String(l.educationalContent).length > 140 ? '…' : ''}
               </div>
             ) : null}
+
+            {(!l.educationalContent && (!l.modelUrls || !l.modelUrls.length)) ? (
+              <div style={{ marginTop: 8, opacity: 0.7, fontWeight: 700 }}>No content attached.</div>
+            ) : null}
+          </div>
+        ))}
+
+        {!lessonsLoading && lessons.length === 0 ? (
+          <div style={{ marginTop: 12, fontWeight: 800, opacity: 0.7 }}>No lessons yet.</div>
+        ) : null}
+      </div>
+
+      {showLessonModal ? (
+        <div className="hpModalOverlay" onMouseDown={closeLessonModal}>
+          <div className="hpModalCard" onMouseDown={(e) => e.stopPropagation()} style={{ maxWidth: 760 }}>
+            <button type="button" className="hpModalClose" onClick={closeLessonModal}>✕</button>
+
+            <div className="hpModalHead">
+              <div className="hpModalTitle">{viewLesson?.title || 'Lesson'}</div>
+              <div className="hpModalSub">View only (read-only)</div>
+            </div>
+
+            <div style={{ marginTop: 10 }}>
+              <div style={{ fontWeight: 900, marginBottom: 6 }}>Educational Content</div>
+              <div
+                style={{
+                  border: '1px solid rgba(0,0,0,0.08)',
+                  borderRadius: 12,
+                  padding: 12,
+                  maxHeight: 260,
+                  overflowY: 'auto',
+                  fontWeight: 700,
+                  opacity: 0.9,
+                  whiteSpace: 'pre-wrap',
+                }}
+              >
+                {viewLesson?.educationalContent || '—'}
+              </div>
+            </div>
+
+            <div style={{ marginTop: 14 }}>
+              <div style={{ fontWeight: 900, marginBottom: 6 }}>3D Models</div>
+              {Array.isArray(viewLesson?.modelUrls) && viewLesson.modelUrls.length ? (
+                <div style={{ display: 'grid', gap: 8 }}>
+                  {viewLesson.modelUrls.map((url, idx) => (
+                    <a key={idx} className="hpGhostBtn" href={url} target="_blank" rel="noreferrer">
+                      Open Model #{idx + 1}
+                    </a>
+                  ))}
+                </div>
+              ) : viewLesson?.modelUrl ? (
+                <a className="hpGhostBtn" href={viewLesson.modelUrl} target="_blank" rel="noreferrer">
+                  Open Model
+                </a>
+              ) : (
+                <div style={{ fontWeight: 800, opacity: 0.7 }}>No 3D models uploaded.</div>
+              )}
+            </div>
+
+            <div className="hpModalActions" style={{ marginTop: 16 }}>
+              <button type="button" className="hpGhostBtn" onClick={closeLessonModal}>
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+
+  const renderAssessment = () => {
+    const scoreStore = readScoreStore();
+
+    return (
+      <div className="hpCard">
+        <div className="hpTop">
+          <div className="hpTopLeft">
+            <div className="hpPageTitle" style={{ margin: 0 }}>Assessment</div>
+            <div className="hpSub">Take quizzes created by instructors.</div>
           </div>
 
-          <div style={{ marginTop: 14, display: 'grid', gap: 14 }}>
-            {(selectedAssess.questions || []).map((q, idx) => {
-              const qid = q._id;
-              const selected = answersMap[qid];
+          <div className="hpTopRight">
+            <button
+              type="button"
+              className="hpGhostBtn"
+              onClick={fetchAssessments}
+              disabled={assessLoading}
+            >
+              Refresh
+            </button>
+
+            {assessView !== 'list' ? (
+              <button
+                type="button"
+                className="hpGhostBtn"
+                onClick={resetAssessmentUI}
+                disabled={submitLoading}
+              >
+                Back to list
+              </button>
+            ) : null}
+          </div>
+        </div>
+
+        {assessError ? <div className="hpInlineError">{assessError}</div> : null}
+
+        {assessView === 'list' && (
+          <div className="hpCardsGrid">
+            {assessLoading ? (
+              <div style={{ marginTop: 12, fontWeight: 800, opacity: 0.7 }}>Loading...</div>
+            ) : null}
+
+            {!assessLoading && assessments.length === 0 ? (
+              <div style={{ marginTop: 12, fontWeight: 800, opacity: 0.7 }}>No assessments yet.</div>
+            ) : null}
+
+            {assessments.map((a) => {
+              const hasScore = Boolean(scoreStore?.[a._id]);
+
+              const timerMinutes = a?.timer?.enabled
+                ? Number(a.timer.minutes)
+                : (a.timerEnabled ? Math.round(Number(a.timerSeconds || 0) / 60) : 0);
+
+              const timerLabel = (timerMinutes > 0)
+                ? `Timer: ${timerMinutes} min`
+                : 'Timer: none';
 
               return (
-                <div
-                  key={qid}
-                  style={{
-                    border: '1px solid rgba(0,0,0,0.12)',
-                    borderRadius: 14,
-                    padding: 14,
-                    background: 'rgba(255,255,255,0.65)',
-                  }}
-                >
-                  <div style={{ fontWeight: 900, color: '#3f5f4a' }}>
-                    {idx + 1}. {q.text}
-                    {typeof q.points === 'number' ? (
-                      <span style={{ fontSize: 12, opacity: 0.7, marginLeft: 8 }}>
-                        ({q.points} pts)
-                      </span>
-                    ) : null}
+                <div key={a._id} className="hpInnerCard hpAssCard">
+                  <div className="hpAssTopRow">
+                    <div className="hpAssTitle">{a.title || 'Untitled Assessment'}</div>
+
+                    <div className="hpAssActions">
+                      <button
+                        type="button"
+                        className="hpPrimaryBtn"
+                        onClick={() => openAssessmentDetails(a._id)}
+                        disabled={assessLoading}
+                      >
+                        {hasScore ? 'Take Again' : 'Take Quiz'}
+                      </button>
+                    </div>
                   </div>
 
-                  <div style={{ marginTop: 10, display: 'grid', gap: 8 }}>
-                    {(q.options || []).map((c, ci) => (
-                      <label
-                        key={`${qid}_${ci}`}
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: 10,
-                          padding: '10px 12px',
-                          borderRadius: 12,
-                          border: '1px solid rgba(0,0,0,0.12)',
-                          background: selected === ci ? 'rgba(246, 223, 232, 0.55)' : 'rgba(255,255,255,0.85)',
-                          cursor: submitLoading ? 'not-allowed' : 'pointer',
-                          userSelect: 'none',
-                        }}
-                      >
-                        <input
-                          type="radio"
-                          name={`q_${qid}`}
-                          checked={selected === ci}
-                          disabled={submitLoading}
-                          onChange={() => pickAnswer(qid, ci)}
-                        />
-                        <div style={{ fontSize: 13, fontWeight: 800, opacity: 0.85 }}>
-                          {c}
-                        </div>
-                      </label>
-                    ))}
+                  <div className="hpAssMeta">
+                    {timerLabel} • {a.questions?.length || 0} questions • {timeAgo(a.createdAt)}
                   </div>
+
+                  {hasScore ? (
+                    <div className="hpScoreMini">
+                      <div className="hpScoreMiniLabel">Last Score</div>
+                      <div className="hpScoreMiniValue">
+                        {scoreStore?.[a._id]?.score} / {scoreStore?.[a._id]?.total}
+                        {typeof scoreStore?.[a._id]?.percent === 'number'
+                          ? ` (${scoreStore?.[a._id]?.percent}%)`
+                          : ''}
+                      </div>
+                    </div>
+                  ) : null}
                 </div>
               );
             })}
           </div>
+        )}
 
-          <div style={{ marginTop: 16, display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-            <button
-              type="button"
-              className="hpBtn"
-              onClick={() => submitAssessment(false)}
-              disabled={submitLoading}
-              style={{ padding: '10px 16px' }}
-            >
-              {submitLoading ? 'Submitting...' : 'Submit'}
-            </button>
+        {assessView === 'details' && selectedAssess && (
+          <div className="hpInnerCard" style={{ marginTop: 14 }}>
+            <div className="hpAssTitle" style={{ fontSize: 18 }}>
+              {selectedAssess.title || 'Untitled Assessment'}
+            </div>
 
-            <button
-              type="button"
-              className="hpBtn"
-              onClick={resetAssessmentUI}
-              disabled={submitLoading}
-              style={{ padding: '10px 16px' }}
-            >
-              Cancel
-            </button>
+            <div className="hpAssMeta" style={{ marginTop: 6 }}>
+              {selectedAssess?.timer?.enabled
+                ? `Timer: ${selectedAssess.timer.minutes} minutes`
+                : (selectedAssess?.timerEnabled
+                    ? `Timer: ${Math.round(Number(selectedAssess.timerSeconds || 0) / 60)} minutes`
+                    : 'Timer: none')}
+              {Array.isArray(selectedAssess.questions)
+                ? ` • Questions: ${selectedAssess.questions.length}`
+                : ''}
+            </div>
+
+            <div style={{ marginTop: 14, display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+              <button
+                type="button"
+                className="hpPrimaryBtn"
+                onClick={startTakingAssessment}
+                disabled={assessLoading}
+              >
+                Start
+              </button>
+
+            </div>
+
+            <div className="hpMuted" style={{ marginTop: 12 }}>
+              Tip: Make sure stable internet before submitting.
+            </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {assessView === 'result' && (
-        <div style={{ marginTop: 16 }}>
-          <div style={{ fontWeight: 900, fontSize: 18, color: '#3f5f4a' }}>
-            Result
-          </div>
-
-          {result ? (
-            <div
-              style={{
-                marginTop: 12,
-                border: '1px solid rgba(0,0,0,0.12)',
-                borderRadius: 14,
-                padding: 14,
-                background: 'rgba(255,255,255,0.65)',
-              }}
-            >
-              <div style={{ fontSize: 13, fontWeight: 900, opacity: 0.9 }}>
-                Score: {result.score} / {result.total}
-                {typeof result.percent === 'number' ? ` (${result.percent}%)` : ''}
+        {assessView === 'take' && selectedAssess && (
+          <div className="hpTakeGrid" style={{ marginTop: 14 }}>
+            <div className="hpInnerCard">
+              <div className="hpAssTitle" style={{ fontSize: 18 }}>
+                {selectedAssess.title || 'Assessment'}
+              </div>
+              <div className="hpAssMeta" style={{ marginTop: 6 }}>
+                Answer all questions then submit.
               </div>
 
-              <div style={{ marginTop: 10, fontSize: 13, fontWeight: 800, opacity: 0.85 }}>
-                Feedback:
+              <div style={{ marginTop: 14, display: 'grid', gap: 14 }}>
+                {(selectedAssess.questions || []).map((q, idx) => {
+                  const qid = q._id;
+                  const selected = answersMap[qid];
+
+                  return (
+                    <div key={qid} className="hpQCard">
+                      <div className="hpQTitle">
+                        {idx + 1}. {q.text}
+                        {typeof q.points === 'number' ? (
+                          <span className="hpQPoints">({q.points} pts)</span>
+                        ) : null}
+                      </div>
+
+                      <div className="hpChoices">
+                        {(q.options || []).map((c, ci) => (
+                          <label
+                            key={`${qid}_${ci}`}
+                            className={`hpChoice ${selected === ci ? 'active' : ''}`}
+                            style={{ cursor: submitLoading ? 'not-allowed' : 'pointer' }}
+                          >
+                            <input
+                              type="radio"
+                              name={`q_${qid}`}
+                              checked={selected === ci}
+                              disabled={submitLoading}
+                              onChange={() => pickAnswer(qid, ci)}
+                            />
+                            <div className="hpChoiceText">{c}</div>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
-              <div style={{ marginTop: 6, fontSize: 13, opacity: 0.85 }}>
-                {result.feedback || 'No feedback configured.'}
+
+              <div style={{ marginTop: 16, display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                <button
+                  type="button"
+                  className="hpPrimaryBtn"
+                  onClick={() => submitAssessment(false)}
+                  disabled={submitLoading}
+                >
+                  {submitLoading ? 'Submitting...' : 'Submit'}
+                </button>
+
+                <button
+                  type="button"
+                  className="hpGhostBtn"
+                  onClick={resetAssessmentUI}
+                  disabled={submitLoading}
+                >
+                  Cancel
+                </button>
               </div>
             </div>
-          ) : (
-            <div style={{ marginTop: 12, opacity: 0.75 }}>
-              Submitted.
-            </div>
-          )}
 
-          <div style={{ marginTop: 14, display: 'flex', gap: 10 }}>
-            <button
-              type="button"
-              className="hpBtn"
-              onClick={resetAssessmentUI}
-              style={{ padding: '10px 16px' }}
-            >
-              Back to list
-            </button>
+            <div className="hpTimerCol">
+              {(selectedAssess?.timer?.enabled || selectedAssess?.timerEnabled) && typeof timeLeft === 'number' ? (
+                <div className="hpInnerCard hpTimerCard">
+                  <div className="hpBoxTitle">TIMER</div>
+                  <div className={`hpTimerValue ${timeLeft <= 10 ? 'danger' : ''}`}>
+                    {formatTime(timeLeft)}
+                  </div>
+
+                  {typeof timerTotal === 'number' && timerTotal > 0 ? (
+                    <div className="hpTimerBar">
+                      <div
+                        className="hpTimerBarFill"
+                        style={{
+                          width: `${Math.max(0, Math.min(100, ((timeLeft / timerTotal) * 100)))}%`,
+                        }}
+                      />
+                    </div>
+                  ) : null}
+
+                  <div className="hpMuted" style={{ marginTop: 10 }}>
+                    Keep an eye on the timer while answering.
+                  </div>
+                </div>
+              ) : (
+                <div className="hpInnerCard hpTimerCard">
+                  <div className="hpBoxTitle">TIMER</div>
+                  <div className="hpMuted">No timer for this quiz.</div>
+                </div>
+              )}
+            </div>
           </div>
-        </div>
-      )}
-    </div>
-  );
+        )}
+
+        {assessView === 'result' && (
+          <div className="hpInnerCard" style={{ marginTop: 14 }}>
+            <div className="hpAssTitle" style={{ fontSize: 18 }}>Result</div>
+
+            {result ? (
+              <div className="hpResultBox" style={{ marginTop: 12 }}>
+                <div className="hpResultScore">
+                  Score: {result.score} / {result.total}
+                  {typeof result.percent === 'number' ? ` (${result.percent}%)` : ''}
+                </div>
+
+                <div className="hpResultLabel" style={{ marginTop: 10 }}>Feedback:</div>
+                <div className="hpResultText">
+                  {result.feedback || 'No feedback configured.'}
+                </div>
+              </div>
+            ) : (
+              <div className="hpMuted" style={{ marginTop: 12 }}>Submitted.</div>
+            )}
+
+            <div style={{ marginTop: 14, display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+              <button
+                type="button"
+                className="hpPrimaryBtn"
+                onClick={() => {
+                  if (selectedAssess?._id) openAssessmentDetails(selectedAssess._id);
+                  else resetAssessmentUI();
+                }}
+              >
+                Take Again
+              </button>
+
+              <button type="button" className="hpGhostBtn" onClick={resetAssessmentUI}>
+                Back to list
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
 
   const renderScanner = () => (
     <div className="hpCard">
-      <div className="hpCardHead">
-        <div className="hpCardTitle">AI Scanner</div>
-        <div className="hpCardSub">Content placeholder</div>
+      <div className="hpPageTitle">AI Scanner</div>
+      <div className="hpSub">Scanner UI will appear here.</div>
+
+      <div className="hpInnerCard" style={{ marginTop: 14 }}>
+        <div className="hpSectionBody">
+          <div className="hpSectionTitle2">Coming soon</div>
+          <div className="hpSectionText">Add scanning flow and results here.</div>
+        </div>
       </div>
     </div>
   );
 
   const renderProgress = () => (
-  <div className="hpCard" style={{ padding: 16 }}>
-    <div style={{ textAlign: 'center', margin: '18px 0 6px' }}>
-      <div style={{ fontWeight: 900, letterSpacing: 1.2, fontSize: 18, color: '#2b5b3a' }}>
-        PROGRESS AND PERFORMANCE
-      </div>
-      <div style={{ fontWeight: 700, fontSize: 12, opacity: 0.75 }}>
-        Track your progress and performance
-      </div>
-    </div>
+    <div className="hpCard">
+      <div className="hpPageTitle">Progress & Performance</div>
+      <div className="hpSub">Track your progress and performance.</div>
 
-    <div
-      style={{
-        display: 'grid',
-        gridTemplateColumns: '1.05fr 1fr',
-        gap: 18,
-        marginTop: 18,
-        alignItems: 'start',
-      }}
-    >
-      <div
-        style={{
-          background: '#fff',
-          border: '1px solid rgba(0,0,0,0.12)',
-          borderRadius: 14,
-          padding: 14,
-          boxShadow: '0 10px 25px rgba(0,0,0,0.06)',
-        }}
-      >
-        <div style={{ fontWeight: 900, color: '#2b5b3a', fontSize: 12, marginBottom: 10 }}>
-          ASSESSMENT PERFORMANCE
-        </div>
-
-        {[
-          { level: 'BASIC LEVEL', pct: '79%', icon: '📖' },
-          { level: 'INTERMEDIATE LEVEL', pct: '88%', icon: '🧩' },
-          { level: 'ADVANCED LEVEL', pct: '92%', icon: '📚' },
-        ].map((x) => (
-          <div
-            key={x.level}
-            style={{
-              border: '1px solid rgba(0,0,0,0.12)',
-              borderRadius: 12,
-              padding: 12,
-              display: 'flex',
-              gap: 12,
-              alignItems: 'center',
-              marginBottom: 10,
-            }}
-          >
-            <div
-              style={{
-                width: 44,
-                height: 44,
-                borderRadius: 12,
-                border: '1px solid rgba(0,0,0,0.12)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontSize: 20,
-                background: 'rgba(255, 182, 193, 0.12)',
-              }}
-            >
-              {x.icon}
-            </div>
-
-            <div style={{ flex: 1 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10 }}>
-                <div style={{ fontWeight: 900, color: '#2b5b3a', fontSize: 12 }}>
-                  {x.level}
-                </div>
-                <div style={{ fontWeight: 900, color: '#2b5b3a', fontSize: 12 }}>{x.pct}</div>
-              </div>
-
-              <div style={{ fontSize: 11, fontWeight: 800, opacity: 0.75, marginTop: 6 }}>
-                PERFORMANCE
-              </div>
-              <div style={{ fontSize: 10, fontWeight: 800, opacity: 0.6, marginTop: 2 }}>
-                7 QUIZZES ANSWERED ● AVG. 1.5 ATTEMPTS
-              </div>
-
-              <div
-                style={{
-                  height: 6,
-                  borderRadius: 999,
-                  background: 'rgba(0,0,0,0.08)',
-                  marginTop: 10,
-                  overflow: 'hidden',
-                }}
-              >
-                <div
-                  style={{
-                    height: '100%',
-                    width: x.pct,
-                    background: 'rgba(60, 140, 80, 0.7)',
-                  }}
-                />
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
-
-      <div style={{ display: 'grid', gap: 14 }}>
-        <div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <div style={{ fontWeight: 900, color: '#2b5b3a', fontSize: 12 }}>
-              UPLOADED IMAGES (6)
-            </div>
-            <button
-              type="button"
-              onClick={() => {}}
-              style={{
-                border: 'none',
-                background: 'transparent',
-                fontWeight: 900,
-                fontSize: 12,
-                color: '#d46b8c',
-                cursor: 'pointer',
-              }}
-            >
-              SEE ALL ›
-            </button>
-          </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 10, marginTop: 10 }}>
-            {[
-              { name: 'YEAST' },
-              { name: 'MOLD' },
-            ].map((x) => (
-              <div
-                key={x.name}
-                style={{
-                  background: '#fff',
-                  border: '1px solid rgba(0,0,0,0.12)',
-                  borderRadius: 14,
-                  padding: 12,
-                  boxShadow: '0 10px 25px rgba(0,0,0,0.06)',
-                }}
-              >
-                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, marginBottom: 8 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                    <div
-                      style={{
-                        width: 34,
-                        height: 34,
-                        borderRadius: 10,
-                        border: '1px solid rgba(0,0,0,0.12)',
-                        background: 'rgba(170, 210, 160, 0.55)',
-                      }}
-                    />
-                    <div>
-                      <div style={{ fontWeight: 900, color: '#2b5b3a', fontSize: 12 }}>{x.name}</div>
-                      <div style={{ fontWeight: 800, fontSize: 10, opacity: 0.6 }}>CONFIDENCE SCORE</div>
-                    </div>
-                  </div>
-                  <div
-                    style={{
-                      width: 18,
-                      height: 18,
-                      borderRadius: 4,
-                      border: '1px solid rgba(0,0,0,0.12)',
-                      background: '#fff',
-                    }}
-                    title="bookmark placeholder"
-                  />
-                </div>
-
-                <div style={{ fontSize: 10, fontWeight: 800, opacity: 0.6, lineHeight: 1.3 }}>
-                  Short description/overview about classification
-                </div>
-
-                <div style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
-                  <button
-                    type="button"
-                    onClick={() => {}}
-                    style={{
-                      padding: '6px 10px',
-                      borderRadius: 999,
-                      border: '1px solid rgba(60,140,80,0.35)',
-                      background: 'rgba(170,210,160,0.55)',
-                      fontWeight: 900,
-                      fontSize: 10,
-                      cursor: 'pointer',
-                      color: '#2b5b3a',
-                    }}
-                  >
-                    LEARN MORE
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {}}
-                    style={{
-                      padding: '6px 10px',
-                      borderRadius: 999,
-                      border: '1px solid rgba(60,140,80,0.35)',
-                      background: '#fff',
-                      fontWeight: 900,
-                      fontSize: 10,
-                      cursor: 'pointer',
-                      color: '#2b5b3a',
-                    }}
-                  >
-                    VIEW MODEL
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <div style={{ fontWeight: 900, color: '#2b5b3a', fontSize: 12 }}>SCAN HISTORY</div>
-            <button
-              type="button"
-              onClick={() => {}}
-              style={{
-                border: 'none',
-                background: 'transparent',
-                fontWeight: 900,
-                fontSize: 12,
-                color: '#d46b8c',
-                cursor: 'pointer',
-              }}
-            >
-              SEE ALL ›
-            </button>
-          </div>
-
-          <div
-            style={{
-              background: '#fff',
-              border: '1px solid rgba(0,0,0,0.12)',
-              borderRadius: 14,
-              padding: 14,
-              marginTop: 10,
-              boxShadow: '0 10px 25px rgba(0,0,0,0.06)',
-            }}
-          >
-            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10 }}>
-              <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-                <div
-                  style={{
-                    width: 46,
-                    height: 46,
-                    borderRadius: 12,
-                    border: '1px solid rgba(0,0,0,0.12)',
-                    background: 'rgba(170, 210, 160, 0.55)',
-                  }}
-                />
-                <div>
-                  <div style={{ fontWeight: 900, color: '#2b5b3a', fontSize: 12 }}>YEAST</div>
-                  <div style={{ fontWeight: 800, fontSize: 10, opacity: 0.6 }}>CONFIDENCE SCORE</div>
-                </div>
-              </div>
-
-              <div
-                style={{
-                  width: 18,
-                  height: 18,
-                  borderRadius: 4,
-                  border: '1px solid rgba(0,0,0,0.12)',
-                  background: '#fff',
-                }}
-                title="bookmark placeholder"
-              />
-            </div>
-
-            <div style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
-              <button
-                type="button"
-                onClick={() => {}}
-                style={{
-                  padding: '6px 10px',
-                  borderRadius: 999,
-                  border: '1px solid rgba(60,140,80,0.35)',
-                  background: 'rgba(170,210,160,0.55)',
-                  fontWeight: 900,
-                  fontSize: 10,
-                  cursor: 'pointer',
-                  color: '#2b5b3a',
-                }}
-              >
-                LEARN MORE
-              </button>
-              <button
-                type="button"
-                onClick={() => {}}
-                style={{
-                  padding: '6px 10px',
-                  borderRadius: 999,
-                  border: '1px solid rgba(60,140,80,0.35)',
-                  background: '#fff',
-                  fontWeight: 900,
-                  fontSize: 10,
-                  cursor: 'pointer',
-                  color: '#2b5b3a',
-                }}
-              >
-                VIEW MODEL
-              </button>
-            </div>
-          </div>
+      <div className="hpInnerCard" style={{ marginTop: 14 }}>
+        <div className="hpSectionBody">
+          <div className="hpSectionTitle2">Coming soon</div>
+          <div className="hpSectionText">Charts and history will appear here.</div>
         </div>
       </div>
     </div>
-  </div>
-);
+  );
 
   const renderProfile = () => (
     <div className="hpCard">
-      <div className="hpCardHead">
-        <div className="hpCardTitle">Profile</div>
-        <div className="hpCardSub">Account settings</div>
-      </div>
+      <div className="hpPageTitle">Profile</div>
 
-      <div className="hpProfileGrid">
-        <div className="hpBox">
-          <div className="hpBoxTitle">Profile Photo</div>
-          <div className="hpPhotoRow">
-            <div className="hpPhotoCircle">
-              {profilePreview ? <img src={profilePreview} alt="preview" /> : '👤'}
+      <div className="hpProfilePhotoCard">
+        <div className="hpProfilePhotoLeft">
+          <div className="hpBigAvatarWrap">
+            <div className="hpBigAvatar">
+              {profilePreview ? (
+                <img src={profilePreview} alt="profile" />
+              ) : (
+                <span className="hpBigAvatarTxt">{welcomeInitials}</span>
+              )}
             </div>
-            <label className="hpUploadBtn">
-              Upload Photo
+
+            <label className="hpAvatarEdit" title="Upload new photo">
+              <PencilMini />
+              <input type="file" onChange={onPickImage} />
+            </label>
+          </div>
+
+          <div className="hpProfilePhotoText">
+            <div className="hpProfilePhotoTitle">Student Profile Photo</div>
+            <div className="hpProfilePhotoSub">Recommended size: 400×400px. JPG or PNG.</div>
+            <label className="hpUploadLink">
+              Upload New Photo
               <input type="file" onChange={onPickImage} />
             </label>
           </div>
         </div>
+      </div>
 
+      <div className="hpProfileGrid">
         <div className="hpBox">
-          <div className="hpBoxTitle">Name</div>
-          <div className="hpFieldRow">
-            <input
-              className="hpInput"
-              disabled={!editName}
-              value={draft.fname}
-              onChange={onDraftChange('fname')}
-              placeholder="First name"
-            />
-            <input
-              className="hpInput"
-              disabled={!editName}
-              value={draft.lname}
-              onChange={onDraftChange('lname')}
-              placeholder="Last name"
-            />
+          <div className="hpBoxHead">
+            <div className="hpBoxTitle">FULL NAME</div>
+            <button
+              type="button"
+              className="hpIconBtn"
+              title={!editName ? 'Edit' : 'Save'}
+              onClick={!editName ? () => setEditName(true) : saveName}
+              disabled={savingKey === 'name'}
+            >
+              {editName ? <CheckIcon /> : <PencilIcon />}
+            </button>
           </div>
-          <div className="hpActionsRow">
-            {!editName ? (
-              <button className="hpBtn" type="button" onClick={() => setEditName(true)}>
-                Edit
+
+          {!editName ? (
+            <div className="hpTwoColValues">
+              <div>
+                <div className="hpSmallLabel">First Name</div>
+                <div className="hpValueText">{saved.fname || '—'}</div>
+              </div>
+              <div>
+                <div className="hpSmallLabel">Last Name</div>
+                <div className="hpValueText">{saved.lname || '—'}</div>
+              </div>
+            </div>
+          ) : (
+            <>
+              <div className="hpFieldRow">
+                <div className="hpFieldBlock">
+                  <div className="hpFieldLabel">First Name</div>
+                  <input className="hpInput" value={draft.fname} onChange={onDraftChange('fname')} />
+                </div>
+
+                <div className="hpFieldBlock">
+                  <div className="hpFieldLabel">Last Name</div>
+                  <input className="hpInput" value={draft.lname} onChange={onDraftChange('lname')} />
+                </div>
+              </div>
+
+              <button
+                type="button"
+                className="hpMiniGhost"
+                onClick={() => {
+                  setEditName(false);
+                  setDraft(saved);
+                }}
+              >
+                Cancel
               </button>
-            ) : (
-              <button className="hpBtn" type="button" onClick={saveName} disabled={savingKey === 'name'}>
-                {savingKey === 'name' ? 'Saving...' : 'Save'}
-              </button>
-            )}
-          </div>
+            </>
+          )}
         </div>
 
         <div className="hpBox">
-          <div className="hpBoxTitle">Email</div>
-          <input
-            className="hpInput"
-            disabled={!editEmail}
-            value={draft.email}
-            onChange={onDraftChange('email')}
-            placeholder="Email"
-          />
-          <div className="hpActionsRow">
-            {!editEmail ? (
-              <button className="hpBtn" type="button" onClick={() => setEditEmail(true)}>
-                Edit
-              </button>
-            ) : (
-              <button className="hpBtn" type="button" onClick={saveEmail} disabled={savingKey === 'email'}>
-                {savingKey === 'email' ? 'Saving...' : 'Save'}
-              </button>
-            )}
+          <div className="hpBoxHead">
+            <div className="hpBoxTitle">EMAIL ADDRESS</div>
+            <button
+              type="button"
+              className="hpIconBtn"
+              title={!editEmail ? 'Edit' : 'Save'}
+              onClick={!editEmail ? () => setEditEmail(true) : saveEmail}
+              disabled={savingKey === 'email'}
+            >
+              {editEmail ? <CheckIcon /> : <PencilIcon />}
+            </button>
           </div>
+
+          {!editEmail ? (
+            <div className="hpValueText">{saved.email || '—'}</div>
+          ) : (
+            <>
+              <input className="hpInput" value={draft.email} onChange={onDraftChange('email')} />
+              <button
+                type="button"
+                className="hpMiniGhost"
+                onClick={() => {
+                  setEditEmail(false);
+                  setDraft(saved);
+                }}
+              >
+                Cancel
+              </button>
+            </>
+          )}
         </div>
 
         <div className="hpBox">
-          <div className="hpBoxTitle">Number</div>
-          <input
-            className="hpInput"
-            disabled={!editNumber}
-            value={draft.number}
-            onChange={onDraftChange('number')}
-            placeholder="Phone number"
-          />
-          <div className="hpActionsRow">
-            {!editNumber ? (
-              <button className="hpBtn" type="button" onClick={() => setEditNumber(true)}>
-                Edit
-              </button>
-            ) : (
-              <button className="hpBtn" type="button" onClick={saveNumber} disabled={savingKey === 'number'}>
-                {savingKey === 'number' ? 'Saving...' : 'Save'}
-              </button>
-            )}
+          <div className="hpBoxHead">
+            <div className="hpBoxTitle">PHONE NUMBER</div>
+            <button
+              type="button"
+              className="hpIconBtn"
+              title={!editNumber ? 'Edit' : 'Save'}
+              onClick={!editNumber ? () => setEditNumber(true) : saveNumber}
+              disabled={savingKey === 'number'}
+            >
+              {editNumber ? <CheckIcon /> : <PencilIcon />}
+            </button>
           </div>
+
+          {!editNumber ? (
+            <div className="hpValueText">{saved.number || '—'}</div>
+          ) : (
+            <>
+              <input className="hpInput" value={draft.number} onChange={onDraftChange('number')} />
+              <button
+                type="button"
+                className="hpMiniGhost"
+                onClick={() => {
+                  setEditNumber(false);
+                  setDraft(saved);
+                }}
+              >
+                Cancel
+              </button>
+            </>
+          )}
         </div>
 
         <div className="hpBox">
-          <div className="hpBoxTitle">Birthday</div>
-          <input
-            className="hpInput"
-            type="date"
-            disabled={!editDob}
-            value={draft.dob}
-            onChange={onDraftChange('dob')}
-          />
-          <div className="hpActionsRow">
-            {!editDob ? (
-              <button className="hpBtn" onClick={() => setEditDob(true)}>Edit</button>
-            ) : (
-              <button className="hpBtn" onClick={saveDob} disabled={savingKey === 'dob'}>
-                {savingKey === 'dob' ? 'Saving...' : 'Save'}
-              </button>
-            )}
+          <div className="hpBoxHead">
+            <div className="hpBoxTitle">BIRTHDAY</div>
+            <button
+              type="button"
+              className="hpIconBtn"
+              title={!editDob ? 'Edit' : 'Save'}
+              onClick={!editDob ? () => setEditDob(true) : saveDob}
+              disabled={savingKey === 'dob'}
+            >
+              {editDob ? <CheckIcon /> : <PencilIcon />}
+            </button>
           </div>
+
+          {!editDob ? (
+            <div className="hpValueText">{formatDOB(saved.dob) || '—'}</div>
+          ) : (
+            <>
+              <input className="hpInput" type="date" value={draft.dob} onChange={onDraftChange('dob')} />
+              <button
+                type="button"
+                className="hpMiniGhost"
+                onClick={() => {
+                  setEditDob(false);
+                  setDraft(saved);
+                }}
+              >
+                Cancel
+              </button>
+            </>
+          )}
         </div>
 
-        <div className="hpBox">
-          <div className="hpBoxTitle">Address</div>
-          <textarea
-            className="hpInput"
-            disabled={!editAddress}
-            value={draft.address}
-            onChange={onDraftChange('address')}
-            placeholder="Enter address"
-            style={{ minHeight: 80, resize: 'vertical' }}
-          />
-          <div className="hpActionsRow">
-            {!editAddress ? (
-              <button className="hpBtn" onClick={() => setEditAddress(true)}>Edit</button>
-            ) : (
-              <button className="hpBtn" onClick={saveAddress} disabled={savingKey === 'address'}>
-                {savingKey === 'address' ? 'Saving...' : 'Save'}
-              </button>
-            )}
+        <div className="hpBox" style={{ gridColumn: '1 / -1' }}>
+          <div className="hpPassRow">
+            <div>
+              <div className="hpBoxTitle">ACCOUNT PASSWORD</div>
+              <div className="hpSub" style={{ marginTop: 6 }}>Change password requires OTP.</div>
+            </div>
+
+            <button type="button" className="hpPrimaryBtn" onClick={openChangePassModal}>
+              <GearIcon />
+              Change Password
+            </button>
           </div>
         </div>
+      </div>
 
-        <div className="hpBox">
-          <div className="hpBoxTitle">Password</div>
+      {showChangePass ? (
+        <div className="hpModalOverlay" onMouseDown={closeChangePassModal}>
+          <div className="hpModalCard" onMouseDown={(e) => e.stopPropagation()}>
+            <button type="button" className="hpModalClose" onClick={closeChangePassModal}>
+              ✕
+            </button>
 
-          {editPassword && (
-            <div className="hpFieldCol">
+            <div className="hpModalHead">
+              <div className="hpModalTitle">Change Password</div>
+              <div className="hpModalSub">Enter your current password and a new password</div>
+            </div>
+
+            <div className="hpFormCol">
+              <label className="hpLabel">Current Password</label>
               <input
                 className="hpInput"
                 type="password"
@@ -1648,6 +1278,10 @@ function HomePageStudent() {
                 value={passDraft.currentPassword}
                 onChange={onPassChange('currentPassword')}
               />
+            </div>
+
+            <div className="hpFormCol" style={{ marginTop: 10 }}>
+              <label className="hpLabel">New Password</label>
               <input
                 className="hpInput"
                 type="password"
@@ -1655,6 +1289,10 @@ function HomePageStudent() {
                 value={passDraft.newPassword}
                 onChange={onPassChange('newPassword')}
               />
+            </div>
+
+            <div className="hpFormCol" style={{ marginTop: 10 }}>
+              <label className="hpLabel">Confirm New Password</label>
               <input
                 className="hpInput"
                 type="password"
@@ -1662,12 +1300,16 @@ function HomePageStudent() {
                 value={passDraft.confirmNewPassword}
                 onChange={onPassChange('confirmNewPassword')}
               />
+            </div>
 
-              {passDraft.otpId ? (
-                <>
-                  <div style={{ fontSize: 12, fontWeight: 900, opacity: 0.75, marginTop: 6 }}>
-                    Enter OTP sent to <b>{passDraft.maskedEmail || 'your email'}</b>
-                  </div>
+            {passDraft.otpId ? (
+              <>
+                <div className="hpOtpHint">
+                  Enter OTP sent to <b>{passDraft.maskedEmail || 'your email'}</b>
+                </div>
+
+                <div className="hpFormCol" style={{ marginTop: 10 }}>
+                  <label className="hpLabel">OTP Code</label>
                   <input
                     className="hpInput"
                     type="text"
@@ -1676,88 +1318,55 @@ function HomePageStudent() {
                     onChange={onPassChange('otpCode')}
                     inputMode="numeric"
                   />
-                  <button
-                    type="button"
-                    className="hpBtn"
-                    onClick={resendChangePassOtp}
-                    disabled={savingKey === 'password'}
-                    style={{ marginTop: 6 }}
-                  >
-                    Resend OTP
-                  </button>
-                </>
-              ) : null}
-            </div>
-          )}
+                </div>
 
-          <div className="hpActionsRow">
-            {!editPassword ? (
-              <button className="hpBtn" type="button" onClick={() => setEditPassword(true)}>
-                Change
+                <button
+                  type="button"
+                  className="hpGhostBtn"
+                  onClick={resendChangePassOtp}
+                  disabled={savingKey === 'password'}
+                  style={{ marginTop: 10 }}
+                >
+                  Resend OTP
+                </button>
+              </>
+            ) : null}
+
+            <div className="hpModalActions">
+              <button type="button" className="hpGhostBtn" onClick={closeChangePassModal} disabled={savingKey === 'password'}>
+                Cancel
               </button>
-            ) : (
-              <button className="hpBtn" type="button" onClick={savePassword} disabled={savingKey === 'password'}>
+
+              <button type="button" className="hpPrimaryBtn" onClick={savePassword} disabled={savingKey === 'password'}>
                 {savingKey === 'password'
                   ? 'Saving...'
                   : passDraft.otpId
                     ? 'Verify & Save'
                     : 'Send OTP'}
               </button>
-            )}
+            </div>
           </div>
         </div>
-      </div>
+      ) : null}
 
       {showStayOrLogout ? (
-        <div
-          style={{
-            position: 'fixed',
-            inset: 0,
-            background: 'rgba(0,0,0,0.35)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            padding: 18,
-            zIndex: 9999,
-          }}
-          onClick={() => setShowStayOrLogout(false)}
-        >
-          <div
-            style={{
-              width: '100%',
-              maxWidth: 380,
-              background: '#fff',
-              borderRadius: 14,
-              padding: '18px 16px',
-              border: '1px solid rgba(0,0,0,0.12)',
-              boxShadow: '0 18px 45px rgba(0,0,0,0.18)',
-              textAlign: 'center',
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div style={{ fontWeight: 900, letterSpacing: 0.4 }}>
-              Password changed successfully
-            </div>
-            <div style={{ marginTop: 10, fontSize: 13, fontWeight: 800, opacity: 0.8 }}>
-              Do you want to stay logged in or logout?
+        <div className="hpModalOverlay" onMouseDown={() => setShowStayOrLogout(false)}>
+          <div className="hpModalCard" onMouseDown={(e) => e.stopPropagation()} style={{ maxWidth: 420 }}>
+            <button type="button" className="hpModalClose" onClick={() => setShowStayOrLogout(false)}>
+              ✕
+            </button>
+
+            <div className="hpModalHead">
+              <div className="hpModalTitle">Password changed successfully</div>
+              <div className="hpModalSub">Do you want to stay logged in or logout?</div>
             </div>
 
-            <div style={{ marginTop: 14, display: 'flex', gap: 10 }}>
-              <button
-                type="button"
-                className="hpBtn"
-                onClick={() => setShowStayOrLogout(false)}
-                style={{ flex: 1 }}
-              >
+            <div className="hpModalActions">
+              <button type="button" className="hpGhostBtn" onClick={() => setShowStayOrLogout(false)} style={{ flex: 1 }}>
                 Stay Logged In
               </button>
 
-              <button
-                type="button"
-                className="hpBtn"
-                onClick={handleLogoutConfirm}
-                style={{ flex: 1 }}
-              >
+              <button type="button" className="hpPrimaryBtn" onClick={handleLogoutConfirm} style={{ flex: 1 }}>
                 Logout
               </button>
             </div>
@@ -1769,105 +1378,129 @@ function HomePageStudent() {
 
   const renderMain = () => {
     if (active === 'Dashboard') return renderDashboard();
-    if (active === 'Learn') return renderLearn();
-    if (active === 'Assesment') return renderAssesment();
+    if (active === 'Learn Mycology') return renderLearn();
+    if (active === 'Assessment') return renderAssessment();
     if (active === 'AI Scanner') return renderScanner();
     if (active === 'Progress & Performance') return renderProgress();
     if (active === 'Profile') return renderProfile();
     return renderDashboard();
   };
 
+  const handleNav = (name) => {
+    setActive(name);
+    if (name !== 'Assessment') resetAssessmentUI();
+  };
+
   return (
-    <div className="hpWrap">
+    <div className={`hpWrap ${sideOpen ? '' : 'collapsed'}`}>
       <aside className="hpSide">
         <div className="hpSideTop">
-          <div className="hpLogo">MyphoLens</div>
+          <div className="hpLogoRow">
+            <div className="hpLogo">MyphoLens</div>
 
-          <div className="hpSectionTitle">OVERVIEW</div>
+            <button
+              type="button"
+              className="hpCollapseBtn"
+              onClick={() => setSideOpen((p) => !p)}
+              title={sideOpen ? 'Collapse menu' : 'Expand menu'}
+            >
+              {sideOpen ? '❮' : '❯'}
+            </button>
+          </div>
+
+          <div className="hpSectionTitle">STUDENT PANEL</div>
 
           <div className="hpNav">
             <button
               type="button"
               className={`hpNavBtn ${active === 'Dashboard' ? 'active' : ''}`}
-              onClick={() => setActive('Dashboard')}
+              onClick={() => handleNav('Dashboard')}
+              title="Dashboard"
             >
-              <span className="hpDot" />
-              Dashboard
+              <span className="hpNavIcon"><DashIcon /></span>
+              <span className="hpNavText">Dashboard</span>
             </button>
 
             <button
               type="button"
-              className={`hpNavBtn ${active === 'Learn' ? 'active' : ''}`}
-              onClick={() => setActive('Learn')}
+              className={`hpNavBtn ${active === 'Learn Mycology' ? 'active' : ''}`}
+              onClick={() => handleNav('Learn Mycology')}
+              title="Learn Mycology"
             >
-              <span className="hpDot" />
-              Learn
+              <span className="hpNavIcon"><BookIcon /></span>
+              <span className="hpNavText">Learn Mycology</span>
             </button>
 
             <button
               type="button"
-              className={`hpNavBtn ${active === 'Assesment' ? 'active' : ''}`}
-              onClick={() => setActive('Assesment')}
+              className={`hpNavBtn ${active === 'Assessment' ? 'active' : ''}`}
+              onClick={() => handleNav('Assessment')}
+              title="Assessment"
             >
-              <span className="hpDot" />
-              Assesment
+              <span className="hpNavIcon"><QuizIcon /></span>
+              <span className="hpNavText">Assessment</span>
             </button>
 
             <button
               type="button"
               className={`hpNavBtn ${active === 'AI Scanner' ? 'active' : ''}`}
-              onClick={() => setActive('AI Scanner')}
+              onClick={() => handleNav('AI Scanner')}
+              title="AI Scanner"
             >
-              <span className="hpDot" />
-              AI Scanner
+              <span className="hpNavIcon"><SearchIcon /></span>
+              <span className="hpNavText">AI Scanner</span>
             </button>
 
             <button
               type="button"
               className={`hpNavBtn ${active === 'Progress & Performance' ? 'active' : ''}`}
-              onClick={() => setActive('Progress & Performance')}
+              onClick={() => handleNav('Progress & Performance')}
+              title="Progress & Performance"
             >
-              <span className="hpDot" />
-              Progress &amp; Performance
+              <span className="hpNavIcon"><ChartIcon /></span>
+              <span className="hpNavText">Progress</span>
             </button>
 
             <button
               type="button"
               className={`hpNavBtn ${active === 'Profile' ? 'active' : ''}`}
-              onClick={() => setActive('Profile')}
+              onClick={() => handleNav('Profile')}
+              title="Profile"
             >
-              <span className="hpDot" />
-              Profile
+              <span className="hpNavIcon"><ProfileIcon /></span>
+              <span className="hpNavText">Profile</span>
             </button>
           </div>
         </div>
 
         <div className="hpSideBottom">
-          <button type="button" className="hpLogout" onClick={() => {
-            if (!window.confirm('Are you sure you want to logout?')) return;
-            handleLogout();
-          }}>
-            LOGOUT
+          <button
+            type="button"
+            className="hpLogoutClean"
+            onClick={() => {
+              if (!window.confirm('Are you sure you want to logout?')) return;
+              handleLogout();
+            }}
+            title="Logout"
+          >
+            <span className="hpLogoutIcon"><LogoutIcon /></span>
+            <span className="hpLogoutText">LOGOUT</span>
           </button>
         </div>
       </aside>
 
       <section className="hpMain">
         <header className="hpTopbar">
-          <form className="hpSearch" onSubmit={handleSearch}>
-            <input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search Mycology Topics"
-            />
-            <button type="submit">⌕</button>
-          </form>
+          <div className="hpWelcomeRight">
+            <div className="hpWelcome">
+              <div className="hpWelcomeText">
+                <div className="hpWelcomeTop">Welcome,</div>
+                <div className="hpWelcomeUser">{usernameLabel}</div>
+              </div>
 
-          <div className="hpWelcome">
-            <div className="hpAvatar" />
-            <div className="hpWelcomeText">
-              <div className="hpWelcomeTop">Welcome,</div>
-              <div className="hpWelcomeUser">{usernameLabel}</div>
+              <div className="hpAvatarSmall" title="Student">
+                {profilePreview ? <img src={profilePreview} alt="avatar" /> : welcomeInitials}
+              </div>
             </div>
           </div>
         </header>
@@ -1877,5 +1510,49 @@ function HomePageStudent() {
     </div>
   );
 }
+
+function timeAgo(dateLike) {
+  if (!dateLike) return '';
+  const d = new Date(dateLike);
+  if (Number.isNaN(d.getTime())) return '';
+
+  const now = new Date();
+  const diffMs = now - d;
+  const sec = Math.floor(diffMs / 1000);
+
+  if (sec < 10) return 'just now';
+  if (sec < 60) return `${sec}s ago`;
+
+  const min = Math.floor(sec / 60);
+  if (min < 60) return `${min}m ago`;
+
+  const hr = Math.floor(min / 60);
+  if (hr < 24) return `${hr}h ago`;
+
+  const day = Math.floor(hr / 24);
+  if (day < 7) return `${day}d ago`;
+
+  const week = Math.floor(day / 7);
+  if (week < 4) return `${week}w ago`;
+
+  const month = Math.floor(day / 30);
+  if (month < 12) return `${month}mo ago`;
+
+  const year = Math.floor(day / 365);
+  return `${year}y ago`;
+}
+
+//icons
+function DashIcon() { return (<svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M4 13h8V4H4v9Zm0 7h8v-5H4v5Zm10 0h6V11h-6v9Zm0-18v7h6V2h-6Z" fill="currentColor" /></svg>); }
+function BookIcon() { return (<svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M4 19a2 2 0 0 0 2 2h14V5a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v14Z" stroke="currentColor" strokeWidth="2.2" /><path d="M8 7h8M8 11h8" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" /></svg>); }
+function QuizIcon() { return (<svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M4 4h16v16H4V4Z" stroke="currentColor" strokeWidth="2.2" /><path d="M7 8h10M7 12h10M7 16h6" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" /></svg>); }
+function ProfileIcon() { return (<svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M12 12a4 4 0 1 0-4-4 4 4 0 0 0 4 4Z" stroke="currentColor" strokeWidth="2.2" /><path d="M20 21a8 8 0 1 0-16 0" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" /></svg>); }
+function LogoutIcon() { return (<svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M10 17v-2h4v-2h-4v-2l-3 3 3 3Zm-6 4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h8v2H4v14h8v2H4Zm12-16h4a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2h-4v-2h4V7h-4V5Z" fill="currentColor" /></svg>); }
+function SearchIcon() { return (<svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M10.5 18a7.5 7.5 0 1 1 0-15 7.5 7.5 0 0 1 0 15Z" stroke="currentColor" strokeWidth="2.2" /><path d="M16.5 16.5 21 21" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" /></svg>); }
+function ChartIcon() { return (<svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M4 19V5" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" /><path d="M4 19h16" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" /><path d="M8 17v-6" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" /><path d="M12 17v-10" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" /><path d="M16 17v-4" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" /></svg>); }
+function PencilMini() {return (<svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M12 20h9" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" /><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4 11.5-11.5Z" stroke="currentColor" strokeWidth="2.2" strokeLinejoin="round" /></svg>);}
+function PencilIcon() {return (<svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M12 20h9" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" /><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4 11.5-11.5Z" stroke="currentColor" strokeWidth="2.2" strokeLinejoin="round" /></svg>);}
+function CheckIcon() {return (<svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M20 6 9 17l-5-5" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" /></svg>);}
+function GearIcon() {return (<svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z" stroke="currentColor" strokeWidth="2.2" /><path d="M19.4 15a7.8 7.8 0 0 0 .1-1l2-1.2-2-3.5-2.3.7a7.8 7.8 0 0 0-1.7-1L15 4h-6l-.5 2.9a7.8 7.8 0 0 0-1.7 1l-2.3-.7-2 3.5 2 1.2a7.8 7.8 0 0 0 0 2l-2 1.2 2 3.5 2.3-.7a7.8 7.8 0 0 0 1.7 1L9 20h6l.5-2.9a7.8 7.8 0 0 0 1.7-1l2.3.7 2-3.5-2-1.2Z" stroke="currentColor" strokeWidth="2.2" strokeLinejoin="round" /></svg>);}
 
 export default HomePageStudent;

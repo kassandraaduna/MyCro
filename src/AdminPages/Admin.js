@@ -6,6 +6,8 @@ import './Admin.css';
 function Admin() {
   const [search, setSearch] = useState('');
   const [active, setActive] = useState('Dashboard');
+  const [sideOpen, setSideOpen] = useState(true);
+
   const navigate = useNavigate();
 
   const [users, setUsers] = useState([]);
@@ -35,9 +37,20 @@ function Admin() {
     tempPassword: '',
   });
 
+  const [showCreateModal, setShowCreateModal] = useState(false);
+
+  const [showViewModal, setShowViewModal] = useState(false);
+  const [viewUser, setViewUser] = useState(null);
+  const [viewEditMode, setViewEditMode] = useState(false);
+
   const [activityType, setActivityType] = useState('All Activities');
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');
+
+  const USERS_PAGE_SIZE = 8;
+  const LOGS_PAGE_SIZE = 8;
+  const [usersPage, setUsersPage] = useState(1);
+  const [logsPage, setLogsPage] = useState(1);
 
   const sanitizeName = (value) => String(value || '').replace(/[^a-zA-Z\s'-]/g, '');
 
@@ -68,24 +81,30 @@ function Admin() {
     };
   }, []);
 
-  const handleSearch = (e) => e.preventDefault();
-
   const handleLogout = () => {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
     navigate('/Landing');
   };
 
-  const handleNav = (name) => setActive(name);
+  const handleNav = (name) => {
+    setActive(name);
+    setSearch('');
+    setUsersPage(1);
+    setLogsPage(1);
+  };
 
   const fetchUsers = async () => {
     try {
       setLoadingUsers(true);
       const res = await axios.get('http://localhost:8000/api/admin/users');
-      setUsers(Array.isArray(res.data) ? res.data : []);
+      const list = Array.isArray(res.data) ? res.data : [];
+      setUsers(list);
+      return list;
     } catch (err) {
       console.error(err);
       alert(err?.response?.data?.message || 'Failed to load users.');
+      return [];
     } finally {
       setLoadingUsers(false);
     }
@@ -95,10 +114,13 @@ function Admin() {
     try {
       setLoadingLogs(true);
       const res = await axios.get('http://localhost:8000/api/admin/logs');
-      setLogs(Array.isArray(res.data) ? res.data : []);
+      const list = Array.isArray(res.data) ? res.data : [];
+      setLogs(list);
+      return list;
     } catch (err) {
       console.error(err);
       alert(err?.response?.data?.message || 'Failed to load logs.');
+      return [];
     } finally {
       setLoadingLogs(false);
     }
@@ -108,6 +130,14 @@ function Admin() {
     fetchUsers();
     fetchLogs();
   }, []);
+
+  useEffect(() => {
+    setUsersPage(1);
+  }, [search]);
+
+  useEffect(() => {
+    setLogsPage(1);
+  }, [search, activityType, fromDate, toDate]);
 
   const filteredUsers = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -215,8 +245,14 @@ function Admin() {
         ...actorPayload,
         details: `Admin changed status of ${user.email} to ${!user.active ? 'Active' : 'Inactive'}`,
       });
-      await fetchUsers();
+
+      const latestUsers = await fetchUsers();
       await fetchLogs();
+
+      if (showViewModal && viewUser?._id === user._id) {
+        const updated = latestUsers.find((x) => x._id === user._id);
+        if (updated) setViewUser(updated);
+      }
     } catch (err) {
       console.error(err);
       alert(err?.response?.data?.message || 'Failed to update status.');
@@ -265,11 +301,13 @@ function Admin() {
       });
 
       cancelEdit();
-      await fetchUsers();
+      const latestUsers = await fetchUsers();
       await fetchLogs();
+      return latestUsers;
     } catch (err) {
       console.error(err);
       alert(err?.response?.data?.message || 'Failed to update user.');
+      return null;
     }
   };
 
@@ -284,6 +322,10 @@ function Admin() {
           details: `Admin deleted account for ${user.email}`,
         },
       });
+
+      if (showViewModal && viewUser?._id === user._id) {
+        closeViewModal();
+      }
 
       await fetchUsers();
       await fetchLogs();
@@ -361,6 +403,8 @@ function Admin() {
         tempPassword: '',
       });
 
+      setShowCreateModal(false);
+
       await fetchUsers();
       await fetchLogs();
     } catch (e) {
@@ -369,6 +413,105 @@ function Admin() {
     } finally {
       setCreating(false);
     }
+  };
+
+  const openViewModal = (u) => {
+    setViewUser(u);
+    setViewEditMode(false);
+
+    setEditingId('');
+    setEditDraft({
+      fname: u.fname || '',
+      lname: u.lname || '',
+      email: u.email || '',
+      number: u.number || '',
+      username: u.username || '',
+      role: u.role || '',
+    });
+
+    setShowViewModal(true);
+  };
+
+  const closeViewModal = () => {
+    setShowViewModal(false);
+    setViewUser(null);
+    setViewEditMode(false);
+    cancelEdit();
+  };
+
+  const onViewClickUpdate = () => {
+    if (!viewUser) return;
+    setViewEditMode(true);
+    startEdit(viewUser);
+  };
+
+  const onViewSave = async () => {
+    const latestUsers = await saveEdit();
+    setViewEditMode(false);
+
+    if (latestUsers && editingId) {
+      const updated = latestUsers.find((x) => x._id === editingId);
+      if (updated) setViewUser(updated);
+    }
+  };
+
+  const paginate = (items, page, pageSize) => {
+    const total = items.length;
+    const totalPages = Math.max(1, Math.ceil(total / pageSize));
+    const safePage = Math.min(Math.max(1, page), totalPages);
+    const start = (safePage - 1) * pageSize;
+    const end = start + pageSize;
+    return {
+      page: safePage,
+      total,
+      totalPages,
+      slice: items.slice(start, end),
+      shown: Math.min(safePage * pageSize, total),
+    };
+  };
+
+  const usersPg = useMemo(
+    () => paginate(filteredUsers, usersPage, USERS_PAGE_SIZE),
+    [filteredUsers, usersPage]
+  );
+
+  const logsPg = useMemo(
+    () => paginate(filteredLogs, logsPage, LOGS_PAGE_SIZE),
+    [filteredLogs, logsPage]
+  );
+
+  const PaginationBar = ({ page, totalPages, total, shown, onPrev, onNext }) => {
+    if (total <= 0) return null;
+    return (
+      <div className="adPager">
+        <div className="adPagerText">
+          Showing <b>{shown}</b> of <b>{total}</b> results
+        </div>
+
+        <div className="adPagerBtns">
+          <button
+            type="button"
+            className="adPagerBtn"
+            onClick={onPrev}
+            disabled={page <= 1}
+            aria-label="Previous"
+            title="Previous"
+          >
+            <ChevronLeft />
+          </button>
+          <button
+            type="button"
+            className="adPagerBtn"
+            onClick={onNext}
+            disabled={page >= totalPages}
+            aria-label="Next"
+            title="Next"
+          >
+            <ChevronRight />
+          </button>
+        </div>
+      </div>
+    );
   };
 
   const renderDashboard = () => (
@@ -401,224 +544,105 @@ function Admin() {
   const renderAccountManagement = () => (
     <>
       <div className="adminTop">
-        <div>
+        <div className="adminTopLeft">
           <div className="adminTitle">Account Management</div>
-          <div className="adminSub">Activate / Deactivate / Update / Delete accounts</div>
-        </div>
-      </div>
-
-      <div className="adminCard" style={{ marginTop: 12 }}>
-        <div className="adminCardHead">
-          <div className="adminTitle" style={{ fontSize: 18 }}>Create Instructor Account</div>
-          <div className="adminSub"></div>
+          <div className="adminSub">
+            Activate, deactivate, update, or delete administrative and instructor accounts.
+          </div>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 10 }}>
-          <input
-            style={miniInputFullWide}
-            placeholder="First name"
-            value={createDraft.fname}
-            onChange={(e) => setCreateDraft((p) => ({ ...p, fname: sanitizeName(e.target.value) }))}
-          />
-          <input
-            style={miniInputFullWide}
-            placeholder="Last name"
-            value={createDraft.lname}
-            onChange={(e) => setCreateDraft((p) => ({ ...p, lname: sanitizeName(e.target.value) }))}
-          />
-          <input
-            style={miniInputFullWide}
-            placeholder="Email"
-            value={createDraft.email}
-            onChange={(e) => setCreateDraft((p) => ({ ...p, email: e.target.value }))}
-          />
+        <div className="adminTopRight">
+          <div className="adInnerSearch">
+            <span className="adInnerSearchIcon">⌕</span>
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search users..."
+            />
+          </div>
 
-          <input
-            style={miniInputFullWide}
-            type="text"
-            inputMode="numeric"
-            placeholder="Phone Number (11 digits)"
-            value={createDraft.number}
-            maxLength={11}
-            onChange={(e) => setCreateDraft((p) => ({ ...p, number: sanitizePhone(e.target.value) }))}
-          />
-
-          <input
-            style={miniInputFullWide}
-            placeholder="Username"
-            value={createDraft.username}
-            onChange={(e) => setCreateDraft((p) => ({ ...p, username: e.target.value }))}
-          />
-
-          <input
-            style={miniInputFullWide}
-            type="date"
-            placeholder="DOB"
-            value={createDraft.dob}
-            onChange={(e) => setCreateDraft((p) => ({ ...p, dob: e.target.value }))}
-          />
-
-          <select
-            style={miniInputFullWide}
-            value={createDraft.gender}
-            onChange={(e) => setCreateDraft((p) => ({ ...p, gender: e.target.value }))}
-          >
-            <option>Male</option>
-            <option>Female</option>
-            <option>Other</option>
-            <option>Prefer not to say</option>
-          </select>
-
-          <input
-            style={miniInputFullWide}
-            placeholder="Temporary Password"
-            type="password"
-            value={createDraft.tempPassword}
-            onChange={(e) => setCreateDraft((p) => ({ ...p, tempPassword: e.target.value }))}
-          />
-
-          <div />
-        </div>
-
-        <div style={{ marginTop: 10, display: 'flex', justifyContent: 'flex-end' }}>
           <button
             type="button"
-            className="adminMiniBtn"
-            onClick={handleCreateInstructor}
-            disabled={creating}
+            className="adPrimaryBtn"
+            onClick={() => setShowCreateModal(true)}
           >
-            {creating ? 'Creating...' : 'Create Instructor'}
+            + Create Instructor Account
           </button>
         </div>
       </div>
 
       {loadingUsers ? (
-        <p>Loading users...</p>
+        <p style={{ marginTop: 12 }}>Loading users...</p>
       ) : (
-        <div style={{ overflowX: 'auto', marginTop: 12 }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-            <thead>
-              <tr>
-                <th style={th}>Name</th>
-                <th style={th}>Email</th>
-                <th style={th}>Role</th>
-                <th style={th}>Number</th>
-                <th style={th}>Status</th>
-                <th style={th}>Actions</th>
-              </tr>
-            </thead>
-
-            <tbody>
-              {filteredUsers.map((u) => (
-                <tr key={u._id}>
-                  <td style={td}>
-                    {editingId === u._id ? (
-                      <div style={{ display: 'flex', gap: 8 }}>
-                        <input
-                          value={editDraft.fname}
-                          onChange={(e) => setEditDraft((p) => ({ ...p, fname: e.target.value }))}
-                          placeholder="First"
-                          style={miniInput}
-                        />
-                        <input
-                          value={editDraft.lname}
-                          onChange={(e) => setEditDraft((p) => ({ ...p, lname: e.target.value }))}
-                          placeholder="Last"
-                          style={miniInput}
-                        />
-                      </div>
-                    ) : (
-                      `${u.fname || ''} ${u.lname || ''}`
-                    )}
-                  </td>
-
-                  <td style={td}>
-                    {editingId === u._id ? (
-                      <input
-                        value={editDraft.email}
-                        onChange={(e) => setEditDraft((p) => ({ ...p, email: e.target.value }))}
-                        placeholder="Email"
-                        style={miniInputFull}
-                      />
-                    ) : (
-                      u.email
-                    )}
-                  </td>
-
-                  <td style={td}>
-                    {editingId === u._id ? (
-                      <input value={editDraft.role} disabled placeholder="role" style={miniInputFull} />
-                    ) : (
-                      u.role || 'user'
-                    )}
-                  </td>
-
-                  <td style={td}>
-                    {editingId === u._id ? (
-                      <input
-                        value={editDraft.number}
-                        onChange={(e) => setEditDraft((p) => ({ ...p, number: e.target.value }))}
-                        placeholder="Number"
-                        style={miniInputFull}
-                      />
-                    ) : (
-                      u.number || '-'
-                    )}
-                  </td>
-
-                  <td style={td}>
-                    <span
-                      style={{
-                        padding: '4px 10px',
-                        borderRadius: 999,
-                        fontWeight: 800,
-                        background: u.active ? 'rgba(0, 200, 100, 0.12)' : 'rgba(255, 0, 80, 0.10)',
-                        border: u.active ? '1px solid rgba(0, 200, 100, 0.25)' : '1px solid rgba(255, 0, 80, 0.22)',
-                      }}
-                    >
-                      {u.active ? 'Active' : 'Inactive'}
-                    </span>
-                  </td>
-
-                  <td style={td}>
-                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                      <button type="button" className="adminMiniBtn" onClick={() => toggleActive(u)}>
-                        {u.active ? 'Deactivate' : 'Activate'}
-                      </button>
-
-                      {editingId === u._id ? (
-                        <>
-                          <button type="button" className="adminMiniBtn" onClick={saveEdit}>
-                            Save
-                          </button>
-                          <button type="button" className="adminMiniBtn" onClick={cancelEdit}>
-                            Cancel
-                          </button>
-                        </>
-                      ) : (
-                        <button type="button" className="adminMiniBtn" onClick={() => startEdit(u)}>
-                          Update
-                        </button>
-                      )}
-
-                      <button type="button" className="adminMiniBtn danger" onClick={() => deleteUser(u)}>
-                        Delete
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-
-              {filteredUsers.length === 0 && (
+        <>
+          <div className="adTableWrap">
+            <table className="adTable">
+              <thead>
                 <tr>
-                  <td style={td} colSpan={6}>
-                    No users found.
-                  </td>
+                  <th style={th}>Name</th>
+                  <th style={th}>Email</th>
+                  <th style={th}>Role</th>
+                  <th style={th}>Status</th>
+                  <th style={{ ...th, textAlign: 'right' }}>Actions</th>
                 </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+
+              <tbody>
+                {usersPg.slice.map((u) => (
+                  <tr key={u._id}>
+                    <td style={td}>{`${u.fname || ''} ${u.lname || ''}`}</td>
+                    <td style={td}>{u.email}</td>
+                    <td style={td}>{u.role || 'user'}</td>
+                    <td style={td}>
+                      <span className={`adStatus ${u.active ? 'on' : 'off'}`}>
+                        {u.active ? 'Active' : 'Inactive'}
+                      </span>
+                    </td>
+
+                    <td style={{ ...td, textAlign: 'right' }}>
+                      <div className="adActionRow">
+                        <button
+                          type="button"
+                          className="adIconBtn"
+                          title="View"
+                          onClick={() => openViewModal(u)}
+                        >
+                          <EyeIcon />
+                        </button>
+
+                        <button
+                          type="button"
+                          className="adIconBtn danger"
+                          title="Delete"
+                          onClick={() => deleteUser(u)}
+                        >
+                          <TrashIcon />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+
+                {usersPg.total === 0 && (
+                  <tr>
+                    <td style={td} colSpan={5}>
+                      No users found.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          <PaginationBar
+            page={usersPg.page}
+            totalPages={usersPg.totalPages}
+            total={usersPg.total}
+            shown={usersPg.shown}
+            onPrev={() => setUsersPage((p) => Math.max(1, p - 1))}
+            onNext={() => setUsersPage((p) => Math.min(usersPg.totalPages, p + 1))}
+          />
+        </>
       )}
     </>
   );
@@ -626,9 +650,20 @@ function Admin() {
   const renderAuditLogs = () => (
     <>
       <div className="auditTop">
-        <div>
-          <div className="adminTitle">Audit Logs</div>
-          <div className="adminSub">Track user activities: logins and registrations</div>
+        <div className="auditTopRow">
+          <div>
+            <div className="adminTitle">Audit Logs</div>
+            <div className="adminSub">Track user activities: logins and registrations</div>
+          </div>
+
+          <div className="adInnerSearch">
+            <span className="adInnerSearchIcon">⌕</span>
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search logs..."
+            />
+          </div>
         </div>
       </div>
 
@@ -674,48 +709,59 @@ function Admin() {
       </div>
 
       {loadingLogs ? (
-        <p>Loading logs...</p>
+        <p style={{ marginTop: 10 }}>Loading logs...</p>
       ) : (
-        <div style={{ overflowX: 'auto', marginTop: 10 }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-            <thead>
-              <tr>
-                <th style={th}>Date & Time</th>
-                <th style={th}>Activity</th>
-                <th style={th}>User</th>
-                <th style={th}>Role</th>
-                <th style={th}>Email</th>
-                <th style={th}>Details</th>
-              </tr>
-            </thead>
-
-            <tbody>
-              {filteredLogs.map((l) => {
-                const d = getLogDate(l);
-                const actionLabel = normalizeAction(l);
-
-                return (
-                  <tr key={l._id}>
-                    <td style={td}>{d ? d.toLocaleString() : '-'}</td>
-                    <td style={td}>{actionLabel}</td>
-                    <td style={td}>{getLogUser(l)}</td>
-                    <td style={td}>{getLogRole(l)}</td>
-                    <td style={td}>{getLogEmail(l)}</td>
-                    <td style={td}>{getLogDetails(l)}</td>
-                  </tr>
-                );
-              })}
-
-              {filteredLogs.length === 0 && (
+        <>
+          <div className="adTableWrap">
+            <table className="adTable">
+              <thead>
                 <tr>
-                  <td style={td} colSpan={6}>
-                    No logs found.
-                  </td>
+                  <th style={th}>Date & Time</th>
+                  <th style={th}>Activity</th>
+                  <th style={th}>User</th>
+                  <th style={th}>Role</th>
+                  <th style={th}>Email</th>
+                  <th style={th}>Details</th>
                 </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+
+              <tbody>
+                {logsPg.slice.map((l) => {
+                  const d = getLogDate(l);
+                  const actionLabel = normalizeAction(l);
+
+                  return (
+                    <tr key={l._id}>
+                      <td style={td}>{d ? d.toLocaleString() : '-'}</td>
+                      <td style={td}>{actionLabel}</td>
+                      <td style={td}>{getLogUser(l)}</td>
+                      <td style={td}>{getLogRole(l)}</td>
+                      <td style={td}>{getLogEmail(l)}</td>
+                      <td style={td}>{getLogDetails(l)}</td>
+                    </tr>
+                  );
+                })}
+
+                {logsPg.total === 0 && (
+                  <tr>
+                    <td style={td} colSpan={6}>
+                      No logs found.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          <PaginationBar
+            page={logsPg.page}
+            totalPages={logsPg.totalPages}
+            total={logsPg.total}
+            shown={logsPg.shown}
+            onPrev={() => setLogsPage((p) => Math.max(1, p - 1))}
+            onNext={() => setLogsPage((p) => Math.min(logsPg.totalPages, p + 1))}
+          />
+        </>
       )}
     </>
   );
@@ -730,10 +776,22 @@ function Admin() {
   };
 
   return (
-    <div className="adWrap">
+    <div className={`adWrap ${sideOpen ? '' : 'collapsed'}`}>
       <aside className="adSide">
         <div className="adSideTop">
-          <div className="adLogo">MyphoLens</div>
+          <div className="adLogoRow">
+            <div className="adLogo">MyphoLens</div>
+
+            <button
+              type="button"
+              className="adCollapseBtn"
+              onClick={() => setSideOpen((p) => !p)}
+              title={sideOpen ? 'Collapse menu' : 'Expand menu'}
+            >
+              {sideOpen ? '❮' : '❯'}
+            </button>
+          </div>
+
           <div className="adSectionTitle">ADMIN</div>
 
           <div className="adNav">
@@ -741,113 +799,351 @@ function Admin() {
               type="button"
               className={`adNavBtn ${active === 'Dashboard' ? 'active' : ''}`}
               onClick={() => handleNav('Dashboard')}
+              title="Dashboard"
             >
-              <span className="adDot" />
-              Dashboard
+              <span className="adNavIcon"><DashIcon /></span>
+              <span className="adNavText">Dashboard</span>
             </button>
 
             <button
               type="button"
               className={`adNavBtn ${active === 'Institution Management' ? 'active' : ''}`}
               onClick={() => handleNav('Institution Management')}
+              title="Institution Management"
             >
-              <span className="adDot" />
-              Institution Management
+              <span className="adNavIcon"><SchoolIcon /></span>
+              <span className="adNavText">Institution Management</span>
             </button>
 
             <button
               type="button"
               className={`adNavBtn ${active === 'Account Management' ? 'active' : ''}`}
               onClick={() => handleNav('Account Management')}
+              title="Account Management"
             >
-              <span className="adDot" />
-              Account Management
+              <span className="adNavIcon"><UsersIcon /></span>
+              <span className="adNavText">Account Management</span>
             </button>
 
             <button
               type="button"
               className={`adNavBtn ${active === 'Dataset Management' ? 'active' : ''}`}
               onClick={() => handleNav('Dataset Management')}
+              title="Dataset Management"
             >
-              <span className="adDot" />
-              Dataset Management
+              <span className="adNavIcon"><DatasetIcon /></span>
+              <span className="adNavText">Dataset Management</span>
             </button>
 
             <button
               type="button"
               className={`adNavBtn ${active === 'Audit Logs' ? 'active' : ''}`}
               onClick={() => handleNav('Audit Logs')}
+              title="Audit Logs"
             >
-              <span className="adDot" />
-              Audit Logs
+              <span className="adNavIcon"><LogsIcon /></span>
+              <span className="adNavText">Audit Logs</span>
             </button>
           </div>
         </div>
 
         <div className="adSideBottom">
-          <button type="button" className="adLogout" onClick={handleLogout}>
-            LOGOUT
+          <button type="button" className="adLogout" onClick={handleLogout} title="Logout">
+            <span className="adNavIcon" style={{ display: 'grid', placeItems: 'center' }}><LogoutIcon /></span>
+            <span className="adNavText">LOGOUT</span>
           </button>
         </div>
       </aside>
 
       <section className="adMain">
         <header className="adTopbar">
-          <form className="adSearch" onSubmit={handleSearch}>
-            <input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder={
-                active === 'Audit Logs'
-                  ? 'Search logs...'
-                  : active === 'Account Management'
-                    ? 'Search users...'
-                    : 'Search...'
-              }
-            />
-            <button type="submit">⌕</button>
-          </form>
+          <div />
+          <div className="adTopRight">
+            <div className="adAvatar" title="Admin">A</div>
+          </div>
         </header>
 
         <div className="adContent">{renderMain()}</div>
       </section>
+
+      {showCreateModal && (
+        <div className="adModalOverlay" onClick={() => !creating && setShowCreateModal(false)}>
+          <div className="adModalCard" onClick={(e) => e.stopPropagation()}>
+            <button
+              type="button"
+              className="adModalClose"
+              onClick={() => !creating && setShowCreateModal(false)}
+              aria-label="Close"
+            >
+              ✕
+            </button>
+
+            <div className="adModalHead">
+              <div className="adModalTitle">Create Instructor Account</div>
+              <div className="adModalSub">Fill in the details below.</div>
+            </div>
+
+            <div className="adFormGrid">
+              <div className="adField">
+                <label>First Name</label>
+                <input
+                  style={miniInputFullWide}
+                  placeholder="First name"
+                  value={createDraft.fname}
+                  onChange={(e) => setCreateDraft((p) => ({ ...p, fname: sanitizeName(e.target.value) }))}
+                />
+              </div>
+
+              <div className="adField">
+                <label>Last Name</label>
+                <input
+                  style={miniInputFullWide}
+                  placeholder="Last name"
+                  value={createDraft.lname}
+                  onChange={(e) => setCreateDraft((p) => ({ ...p, lname: sanitizeName(e.target.value) }))}
+                />
+              </div>
+
+              <div className="adField">
+                <label>Email</label>
+                <input
+                  style={miniInputFullWide}
+                  placeholder="Email"
+                  value={createDraft.email}
+                  onChange={(e) => setCreateDraft((p) => ({ ...p, email: e.target.value }))}
+                />
+              </div>
+
+              <div className="adField">
+                <label>Phone Number</label>
+                <input
+                  style={miniInputFullWide}
+                  type="text"
+                  inputMode="numeric"
+                  placeholder="11 digits"
+                  value={createDraft.number}
+                  maxLength={11}
+                  onChange={(e) => setCreateDraft((p) => ({ ...p, number: sanitizePhone(e.target.value) }))}
+                />
+              </div>
+
+              <div className="adField">
+                <label>Username</label>
+                <input
+                  style={miniInputFullWide}
+                  placeholder="Username"
+                  value={createDraft.username}
+                  onChange={(e) => setCreateDraft((p) => ({ ...p, username: e.target.value }))}
+                />
+              </div>
+
+              <div className="adField">
+                <label>Birth Date</label>
+                <input
+                  style={miniInputFullWide}
+                  type="date"
+                  value={createDraft.dob}
+                  onChange={(e) => setCreateDraft((p) => ({ ...p, dob: e.target.value }))}
+                />
+              </div>
+
+              <div className="adField">
+                <label>Gender</label>
+                <select
+                  style={miniInputFullWide}
+                  value={createDraft.gender}
+                  onChange={(e) => setCreateDraft((p) => ({ ...p, gender: e.target.value }))}
+                >
+                  <option>Male</option>
+                  <option>Female</option>
+                  <option>Other</option>
+                  <option>Prefer not to say</option>
+                </select>
+              </div>
+
+              <div className="adField">
+                <label>Temporary Password</label>
+                <input
+                  style={miniInputFullWide}
+                  placeholder="Temporary Password"
+                  type="password"
+                  value={createDraft.tempPassword}
+                  onChange={(e) => setCreateDraft((p) => ({ ...p, tempPassword: e.target.value }))}
+                />
+              </div>
+            </div>
+
+            <div className="adModalActions">
+              <button
+                type="button"
+                className="adGhostBtn"
+                onClick={() => !creating && setShowCreateModal(false)}
+                disabled={creating}
+              >
+                Cancel
+              </button>
+
+              <button
+                type="button"
+                className="adPrimaryBtn"
+                onClick={handleCreateInstructor}
+                disabled={creating}
+              >
+                {creating ? 'Creating...' : 'Create Instructor Account'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showViewModal && viewUser && (
+        <div className="adModalOverlay" onClick={closeViewModal}>
+          <div className="adModalCard" onClick={(e) => e.stopPropagation()}>
+            <button type="button" className="adModalClose" onClick={closeViewModal} aria-label="Close">
+              ✕
+            </button>
+
+            <div className="adModalHead">
+              <div className="adModalTitle">Account Details</div>
+              <div className="adModalSub">{viewUser.email}</div>
+            </div>
+
+            <div className="adViewGrid">
+              <div className="adField">
+                <label>First Name</label>
+                <input
+                  style={miniInputFullWide}
+                  value={editDraft.fname}
+                  onChange={(e) => setEditDraft((p) => ({ ...p, fname: sanitizeName(e.target.value) }))}
+                  disabled={!viewEditMode}
+                />
+              </div>
+
+              <div className="adField">
+                <label>Last Name</label>
+                <input
+                  style={miniInputFullWide}
+                  value={editDraft.lname}
+                  onChange={(e) => setEditDraft((p) => ({ ...p, lname: sanitizeName(e.target.value) }))}
+                  disabled={!viewEditMode}
+                />
+              </div>
+
+              <div className="adField">
+                <label>Email</label>
+                <input
+                  style={miniInputFullWide}
+                  value={editDraft.email}
+                  onChange={(e) => setEditDraft((p) => ({ ...p, email: e.target.value }))}
+                  disabled={!viewEditMode}
+                />
+              </div>
+
+              <div className="adField">
+                <label>Phone Number</label>
+                <input
+                  style={miniInputFullWide}
+                  value={editDraft.number}
+                  onChange={(e) => setEditDraft((p) => ({ ...p, number: sanitizePhone(e.target.value) }))}
+                  disabled={!viewEditMode}
+                />
+              </div>
+
+              <div className="adField">
+                <label>Username</label>
+                <input
+                  style={miniInputFullWide}
+                  value={editDraft.username}
+                  onChange={(e) => setEditDraft((p) => ({ ...p, username: e.target.value }))}
+                  disabled={!viewEditMode}
+                />
+              </div>
+
+              <div className="adField">
+                <label>Role</label>
+                <input style={miniInputFullWide} value={viewUser.role || 'user'} disabled />
+              </div>
+
+              <div className="adField">
+                <label>Status</label>
+                <div style={{ marginTop: 6 }}>
+                  <span className={`adStatus ${viewUser.active ? 'on' : 'off'}`}>
+                    {viewUser.active ? 'Active' : 'Inactive'}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div className="adModalActions">
+              <button
+                type="button"
+                className="adGhostBtn"
+                onClick={() => toggleActive(viewUser)}
+              >
+                {viewUser.active ? 'Deactivate' : 'Activate'}
+              </button>
+
+              {!viewEditMode ? (
+                <button type="button" className="adPrimaryBtn" onClick={onViewClickUpdate}>
+                  Update
+                </button>
+              ) : (
+                <>
+                  <button type="button" className="adGhostBtn" onClick={() => setViewEditMode(false)}>
+                    Cancel
+                  </button>
+                  <button type="button" className="adPrimaryBtn" onClick={onViewSave}>
+                    Save Changes
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 
 const th = {
   textAlign: 'left',
-  padding: '10px 8px',
+  padding: '12px 10px',
   borderBottom: '1px solid rgba(0,0,0,0.08)',
   fontWeight: 900,
+  fontSize: 12,
+  letterSpacing: 0.4,
+  color: 'rgba(0,0,0,0.55)',
+  textTransform: 'uppercase',
 };
 
 const td = {
-  padding: '10px 8px',
+  padding: '12px 10px',
   borderBottom: '1px solid rgba(0,0,0,0.06)',
-  verticalAlign: 'top',
-};
-
-const miniInput = {
-  width: 120,
-  padding: '8px 10px',
-  borderRadius: 8,
-  border: '1px solid rgba(0,0,0,0.18)',
-};
-
-const miniInputFull = {
-  width: 220,
-  padding: '8px 10px',
-  borderRadius: 8,
-  border: '1px solid rgba(0,0,0,0.18)',
+  verticalAlign: 'middle',
+  fontSize: 13,
+  fontWeight: 700,
+  color: 'rgba(0,0,0,0.78)',
 };
 
 const miniInputFullWide = {
   width: '100%',
   padding: '10px 12px',
-  borderRadius: 10,
-  border: '1px solid rgba(0,0,0,0.14)',
+  borderRadius: 12,
+  border: '1px solid rgba(0,0,0,0.12)',
   outline: 'none',
+  background: 'rgba(255,255,255,0.98)',
 };
+
+//ICONS
+function DashIcon() {return (<svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M4 13h8V4H4v9Zm0 7h8v-5H4v5Zm10 0h6V11h-6v9Zm0-18v7h6V2h-6Z" fill="currentColor" /></svg>);}
+function SchoolIcon() {return (<svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M12 3 1 9l11 6 9-4.91V17h2V9L12 3Zm-7.2 7L12 13.7 19.2 10 12 6.3 4.8 10ZM6 12.85V17c0 2.21 3.13 4 6 4s6-1.79 6-4v-4.15l-6 3.27-6-3.27Z" fill="currentColor" /></svg>);}
+function UsersIcon() {return (<svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5s-3 1.34-3 3 1.34 3 3 3ZM8 11c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5 5 6.34 5 8s1.34 3 3 3Zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5C15 14.17 10.33 13 8 13Zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h7v-2.5c0-2.33-4.67-3.5-7-3.5Z" fill="currentColor" /></svg>);}
+function DatasetIcon() {return (<svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M4 6c0-1.1.9-2 2-2h12a2 2 0 0 1 2 2v12c0 1.1-.9 2-2 2H6a2 2 0 0 1-2-2V6Zm2 0v12h12V6H6Zm2 2h8v2H8V8Zm0 4h8v2H8v-2Z" fill="currentColor" /></svg>);}
+function LogsIcon() {return (<svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M3 3h18v2H3V3Zm0 6h18v2H3V9Zm0 6h12v2H3v-2Zm0 6h12v2H3v-2Z" fill="currentColor" /></svg>);}
+function LogoutIcon() {return (<svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M10 17v-2h4v-2h-4v-2l-3 3 3 3Zm-6 4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h8v2H4v14h8v2H4Zm12-16h4a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2h-4v-2h4V7h-4V5Z" fill="currentColor" /></svg>);}
+function EyeIcon() {return (<svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M12 5c-7 0-10 7-10 7s3 7 10 7 10-7 10-7-3-7-10-7Zm0 12a5 5 0 1 1 0-10 5 5 0 0 1 0 10Zm0-2.5a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5Z" fill="currentColor" /></svg>);}
+function TrashIcon() {return (<svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M6 7h12l-1 14H7L6 7Zm3-3h6l1 2H8l1-2Z" fill="currentColor" /></svg>);}
+function ChevronLeft() {return (<svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M15 6 9 12l6 6" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" /></svg>);}
+function ChevronRight() {return (<svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M9 6l6 6-6 6" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" /></svg>);}
 
 export default Admin;

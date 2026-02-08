@@ -14,7 +14,9 @@ const getActor = (req) => {
 
 router.get('/users', async (req, res) => {
   try {
-    const users = await User.find({ role: { $ne: 'admin' } }).lean();
+    const users = await User.find({
+      role: { $not: /^\s*admin\s*$/i }
+    }).lean();
     return res.json(users);
   } catch (err) {
     console.error('GET /admin/users error:', err);

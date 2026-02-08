@@ -1,387 +1,878 @@
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
+
+*{
+  margin:0;
+  padding:0;
+  box-sizing:border-box;
   font-family: Arial, Helvetica, sans-serif;
 }
 
-.hiWrap {
-  width: 100%;
-  min-height: 100vh;
-  display: grid;
-  grid-template-columns: 260px 1fr;
-  background: #ffffff;
+:root{
+  --g:#153c2a;
+  --g2:#0f2d1f;
+  --mint: rgba(21,60,42,0.08);
+  --border: rgba(0,0,0,0.08);
+  --text: rgba(0,0,0,0.78);
+  --muted: rgba(0,0,0,0.55);
+  --bg:#f4f7f5;
 }
 
-.hiSide {
-  border-right: 1px solid rgba(0,0,0,0.12);
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  background: #ffffff;
+.hiWrap{
+  width:100%;
+  height:100vh;
+  overflow:hidden;
+  display:grid;
+  grid-template-columns:260px 1fr;
+  background: var(--bg);
 }
 
-.hiSideTop {
-  padding: 18px 16px 10px;
+.hiWrap.collapsed{
+  grid-template-columns:78px 1fr;
 }
 
-.hiLogo {
-  font-size: 22px;
-  font-weight: 900;
-  color: #3f5f4a;
-  margin-bottom: 16px;
+.hiSide{
+  height:100vh;
+  position:sticky;
+  top:0;
+  border-right:1px solid var(--border);
+  background:#fff;
+  display:flex;
+  flex-direction:column;
+  overflow:hidden;
 }
 
-.hiSectionTitle {
-  font-size: 11px;
-  font-weight: 800;
+.hiSideTop{
+  flex:1;
+  overflow-y:auto;
+  padding:18px 16px 10px;
+}
+
+.hiLogoRow{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+}
+
+.hiLogo{
+  font-size:22px;
+  font-weight:900;
+  color: var(--g);
+  letter-spacing:0.2px;
+  white-space:nowrap;
+}
+
+.hiCollapseBtn{
+  width:36px;
+  height:36px;
+  border-radius:12px;
+  border:1px solid rgba(0,0,0,0.10);
+  background: rgba(255,255,255,0.95);
+  cursor:pointer;
+  font-weight:900;
+  color: var(--g);
+  display:grid;
+  place-items:center;
+  transition: box-shadow .15s ease, background .15s ease;
+}
+.hiCollapseBtn:hover{
+  background:#fff;
+  box-shadow:0 10px 22px rgba(0,0,0,0.08);
+}
+
+.hiSectionTitle{
+  font-size:11px;
+  font-weight:900;
   color: rgba(0,0,0,0.45);
-  margin: 8px 0 10px;
+  letter-spacing:0.8px;
+  margin:14px 0 12px;
 }
 
-.hiNav {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
+.hiNav{
+  display:flex;
+  flex-direction:column;
+  gap:10px;
 }
 
-.hiNavBtn {
-  width: 100%;
-  text-align: left;
-  background: transparent;
-  border: none;
-  padding: 10px 12px;
-  border-radius: 10px;
-  cursor: pointer;
-  font-weight: 800;
-  color: rgba(0,0,0,0.7);
-  display: flex;
-  align-items: center;
-  gap: 10px;
+.hiNavBtn{
+  width:100%;
+  border:1px solid transparent;
+  background:transparent;
+  padding:12px 12px;
+  border-radius:14px;
+  display:flex;
+  align-items:center;
+  gap:12px;
+  cursor:pointer;
+  font-weight:900;
+  font-size:13px;
+  color: rgba(0,0,0,0.74);
+  text-align:left;
+  transition: background .15s ease, border .15s ease;
 }
 
-.hiNavBtn:hover {
-  background: rgba(246, 223, 232, 0.6);
+.hiNavIcon{
+  width:34px;
+  height:34px;
+  border-radius:12px;
+  display:grid;
+  place-items:center;
+  background: rgba(21,60,42,0.06);
+  color: var(--g);
+  flex-shrink:0;
 }
 
-.hiNavBtn.active {
-  background: rgba(246, 223, 232, 0.85);
-  border: 1px solid rgba(0,0,0,0.12);
-  color: rgba(0,0,0,0.8);
+.hiNavText{
+  white-space:nowrap;
 }
 
-.hiDot {
-  width: 10px;
-  height: 10px;
-  border-radius: 999px;
-  border: 1px solid rgba(0,0,0,0.35);
-  background: rgba(255,255,255,0.9);
+.hiNavBtn:hover{
+  background: rgba(21,60,42,0.06);
+  border-color: rgba(21,60,42,0.14);
 }
 
-.hiSideBottom {
-  padding: 14px 16px;
+.hiNavBtn.active{
+  background: rgba(21,60,42,0.10);
+  border-color: rgba(21,60,42,0.22);
+}
+.hiNavBtn.active .hiNavIcon{
+  background: rgba(21,60,42,0.14);
 }
 
-.hiLogout {
-  width: 100%;
-  height: 38px;
-  border-radius: 10px;
-  border: none;
-  background: transparent;
-  font-weight: 900;
-  color: rgba(0,0,0,0.6);
-  cursor: pointer;
-  border-top: 1px solid rgba(0,0,0,0.10);
-  padding-top: 10px;
+.hiSideBottom{
+  flex-shrink:0;
+  padding:14px 16px;
+  border-top:1px solid rgba(0,0,0,0.10);
+  background:#fff;
 }
 
-.hiLogout:hover {
-  color: rgba(0,0,0,0.8);
+.hiLogoutClean{
+  width:100%;
+  padding:12px 14px;
+  border-radius:14px;
+  border:1px solid rgba(0,0,0,0.14);
+  background: rgba(0,0,0,0.03);
+  cursor:pointer;
+  font-weight:900;
+  letter-spacing:.6px;
+  display:flex;
+  align-items:center;
+  gap:12px;
+  color: rgba(0,0,0,0.78);
+  justify-content:flex-start;
+}
+.hiLogoutClean:hover{
+  background: rgba(0,0,0,0.06);
+}
+.hiLogoutIcon{
+  width:34px;
+  height:34px;
+  border-radius:12px;
+  display:grid;
+  place-items:center;
+  background: rgba(21,60,42,0.06);
+  color: var(--g);
+  border:1px solid rgba(21,60,42,0.10);
+}
+.hiLogoutText{
+  font-size:13px;
 }
 
-.hiMain {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
+.hiWrap.collapsed .hiLogo,
+.hiWrap.collapsed .hiSectionTitle,
+.hiWrap.collapsed .hiNavText,
+.hiWrap.collapsed .hiLogoutText{
+  display:none;
+}
+.hiWrap.collapsed .hiSideTop{
+  padding:18px 12px 10px;
+}
+.hiWrap.collapsed .hiSideBottom{
+  padding:14px 12px;
+}
+.hiWrap.collapsed .hiNavBtn{
+  justify-content:center;
+  padding:10px;
+}
+.hiWrap.collapsed .hiLogoutClean{
+  justify-content:center;
 }
 
-.hiTopbar {
-  background: #f6dfe8;
-  border-bottom: 1px solid rgba(0,0,0,0.10);
-  padding: 14px 18px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 14px;
+.hiMain{
+  height:100vh;
+  min-width:0;
+  display:flex;
+  flex-direction:column;
+  overflow:hidden;
+  background: var(--bg);
 }
 
-.hiSearch {
-  flex: 1;
-  max-width: 540px;
-  display: flex;
-  align-items: center;
-  position: relative;
+.hiTopbar{
+  height:64px;
+  background:#fff !important;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  padding:0 18px;
+  border-bottom:1px solid var(--border);
+  gap:12px;
 }
 
-.hiSearch input {
-  width: 100%;
-  height: 34px;
-  border-radius: 18px;
-  border: 1px solid rgba(0,0,0,0.20);
-  background: rgba(255,255,255,0.65);
-  padding: 0 40px 0 14px;
-  font-size: 13px;
+.hiWelcomeRight{
+  display:flex;
+  align-items:center;
+  justify-content:flex-end;
+  margin-left:auto;
 }
 
-.hiSearch input:focus {
-  outline: none;
-  background: rgba(255,255,255,0.85);
+.hiWelcome{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  justify-content:flex-end;
 }
 
-.hiSearch button {
-  position: absolute;
-  right: 8px;
-  width: 28px;
-  height: 28px;
-  border-radius: 999px;
-  border: none;
-  background: rgba(255,255,255,0.65);
-  cursor: pointer;
+.hiWelcomeText{
+  line-height:1.05;
+  text-align:right;
 }
 
-.hiSearch button:hover {
-  background: rgba(255,255,255,0.85);
-}
-
-.hiWelcome {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  min-width: 220px;
-  justify-content: flex-end;
-}
-
-.hiAvatar {
-  width: 34px;
-  height: 34px;
-  border-radius: 999px;
-  border: 1px solid rgba(0,0,0,0.18);
-  background: rgba(255,255,255,0.65);
-}
-
-.hiWelcomeText {
-  line-height: 1.05;
-  text-align: left;
-}
-
-.hiWelcomeTop {
-  font-size: 12px;
-  font-weight: 800;
+.hiWelcomeTop{
+  font-size:12px;
+  font-weight:800;
   color: rgba(0,0,0,0.55);
 }
 
-.hiWelcomeUser {
-  font-size: 12px;
-  font-weight: 900;
+.hiWelcomeUser{
+  font-size:12px;
+  font-weight:900;
   color: rgba(0,0,0,0.75);
 }
 
-.hiContent {
-  padding: 18px;
+.hiAvatarSmall{
+  width:42px;
+  height:42px;
+  border-radius:999px;
+  background: rgba(21,60,42,0.10);
+  border:1px solid rgba(21,60,42,0.18);
+  color: var(--g);
+  font-weight:900;
+  display:grid;
+  place-items:center;
+  overflow:hidden;
+}
+.hiAvatarSmall img{
+  width:100%;
+  height:100%;
+  object-fit:cover;
 }
 
-.hiCard {
-  width: 100%;
-  background: #ffffff;
+.hiContent{
+  flex:1;
+  overflow-y:auto;
+  padding:18px;
 }
 
-.hiCardHead {
-  margin-bottom: 12px;
+.hiCard{
+  width:100%;
 }
 
-.hiCardTitle {
-  font-size: 14px;
-  font-weight: 900;
-  color: rgba(0,0,0,0.75);
-  letter-spacing: 0.2px;
+.hiPageTitle{
+  font-size:30px;
+  font-weight:900;
+  color: rgba(0,0,0,0.86);
+  letter-spacing:0.2px;
+  margin-bottom:12px;
 }
 
-.hiCardSub {
-  margin-top: 4px;
-  font-size: 12px;
-  font-weight: 800;
-  color: rgba(0,0,0,0.45);
+.hiSub{
+  font-size:13px;
+  font-weight:800;
+  color: rgba(0,0,0,0.52);
+  line-height:1.35;
 }
 
-/* PROFILE */
-.hiProfileGrid {
-  margin-top: 12px;
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 14px;
+.hiInnerCard{
+  background:#fff;
+  border:1px solid rgba(0,0,0,0.07);
+  border-radius:18px;
+  padding:16px;
+  box-shadow:0 12px 26px rgba(0,0,0,0.05);
 }
 
-.hiBox {
-  border: 1px solid rgba(0,0,0,0.12);
-  border-radius: 10px;
-  padding: 12px;
-  background: #ffffff;
+.hiSectionBody{
+  padding:6px 4px;
+}
+.hiSectionTitle2{
+  font-size:14px;
+  font-weight:900;
+  color: rgba(0,0,0,0.78);
+}
+.hiSectionText{
+  margin-top:6px;
+  font-size:13px;
+  font-weight:800;
+  color: rgba(0,0,0,0.60);
+  line-height:1.45;
 }
 
-.hiBoxTitle {
-  font-size: 12px;
-  font-weight: 900;
-  color: rgba(0,0,0,0.7);
-  margin-bottom: 10px;
+.hiWelcomeCardTitle{
+  font-size:16px;
+  font-weight:900;
+  color: rgba(0,0,0,0.78);
+}
+.hiWelcomeCardSub{
+  margin-top:6px;
+  font-weight:800;
+  opacity:0.65;
+  font-size:13px;
 }
 
-.hiPhotoRow {
-  display: flex;
-  align-items: center;
-  gap: 12px;
+.hiTop{
+  background:#fff;
+  border:1px solid rgba(0,0,0,0.07);
+  border-radius:18px;
+  padding:16px;
+  box-shadow:0 12px 26px rgba(0,0,0,0.05);
+  display:flex;
+  align-items:flex-end;
+  justify-content:space-between;
+  gap:12px;
 }
 
-.hiPhotoCircle {
-  width: 56px;
-  height: 56px;
-  border-radius: 999px;
-  border: 1px solid rgba(0,0,0,0.18);
-  background: rgba(246, 223, 232, 0.40);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  overflow: hidden;
-  font-size: 22px;
+.hiTopLeft{
+  display:flex;
+  flex-direction:column;
+  gap:6px;
 }
 
-.hiPhotoCircle img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
+.hiTopRight{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  flex-wrap:wrap;
+  justify-content:flex-end;
 }
 
-.hiUploadBtn {
-  border: 1px solid rgba(0,0,0,0.18);
-  background: rgba(255,255,255,0.7);
-  padding: 10px 12px;
-  border-radius: 10px;
-  font-size: 12px;
-  font-weight: 900;
-  color: rgba(0,0,0,0.65);
-  cursor: pointer;
+.hiPrimaryBtn{
+  padding:12px 16px;
+  border-radius:14px;
+  border:1px solid rgba(21,60,42,0.22);
+  background: var(--g);
+  color:#fff;
+  font-weight:900;
+  cursor:pointer;
+  box-shadow:0 14px 26px rgba(21,60,42,0.18);
+  display:inline-flex;
+  align-items:center;
+  gap:10px;
+}
+.hiPrimaryBtn:hover{
+  background: var(--g2);
 }
 
-.hiUploadBtn input {
-  display: none;
+.hiGhostBtn{
+  padding:12px 16px;
+  border-radius:14px;
+  border:1px solid rgba(0,0,0,0.14);
+  background:#fff;
+  color: rgba(0,0,0,0.78);
+  font-weight:900;
+  cursor:pointer;
+  display:inline-flex;
+  align-items:center;
+  gap:10px;
+}
+.hiGhostBtn:hover{
+  background: rgba(0,0,0,0.03);
 }
 
-.hiFieldRow {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px;
+.hiCardsGrid{
+  margin-top:14px;
+  display:grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap:12px;
 }
 
-.hiFieldCol {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
+.hiAssCard{
+  padding:14px;
+  border-radius:18px;
 }
 
-.hiInput {
-  width: 100%;
-  height: 36px;
-  border-radius: 10px;
-  border: 1px solid rgba(0,0,0,0.18);
-  padding: 0 10px;
-  font-size: 13px;
-  background: rgba(255,255,255,0.85);
+.hiAssTopRow{
+  display:flex;
+  justify-content:space-between;
+  gap:10px;
+  align-items:center;
 }
 
-.hiInput:disabled {
-  opacity: 0.7;
-  background: rgba(245,245,245,0.7);
+.hiAssTitle{
+  font-weight:900;
+  color: rgba(0,0,0,0.78);
 }
 
-.hiActionsRow {
-  margin-top: 10px;
-  display: flex;
-  justify-content: flex-end;
+.hiAssActions{
+  display:flex;
+  gap:8px;
+  align-items:center;
 }
 
-.hiBtn {
-  height: 34px;
-  padding: 0 14px;
-  border-radius: 10px;
-  border: 1px solid rgba(0,0,0,0.18);
-  background: rgba(246, 223, 232, 0.55);
-  font-weight: 900;
-  cursor: pointer;
+.hiAssMeta{
+  margin-top:6px;
+  font-size:12px;
+  opacity:0.75;
+  font-weight:800;
+}
+
+.hiIconBtnSm{
+  width:40px;
+  height:40px;
+  border-radius:14px;
+  border:1px solid rgba(0,0,0,0.10);
+  background:#fff;
+  cursor:pointer;
+  display:grid;
+  place-items:center;
   color: rgba(0,0,0,0.70);
 }
-
-.hiBtn:hover {
-  background: rgba(246, 223, 232, 0.80);
+.hiIconBtnSm:hover{
+  background: rgba(21,60,42,0.06);
+  border-color: rgba(21,60,42,0.18);
+  color: var(--g);
+}
+.hiIconBtnSm.danger{
+  color: rgba(170,0,60,0.92);
+}
+.hiIconBtnSm.danger:hover{
+  background: rgba(255,0,80,0.08);
+  border-color: rgba(255,0,80,0.18);
 }
 
-.hiBtn:disabled {
-  opacity: 0.7;
-  cursor: not-allowed;
+.hiProfilePhotoCard{
+  background:#fff;
+  border:1px solid rgba(0,0,0,0.07);
+  border-radius:18px;
+  padding:16px;
+  box-shadow:0 12px 26px rgba(0,0,0,0.05);
 }
 
-
-.adWrap {
-  width: 100%;
-  height: 100vh;          
-  overflow: hidden;       
-  display: grid;
-  grid-template-columns: 260px 1fr;
-  background: #ffffff;
+.hiProfilePhotoLeft{
+  display:flex;
+  align-items:center;
+  gap:14px;
 }
 
-.adSide {
-  height: 100vh;          
-  position: sticky;      
-  top: 0;
-  border-right: 1px solid rgba(0,0,0,0.12);
-  display: flex;
-  flex-direction: column;
-  background: #ffffff;
-  overflow: hidden;      
+.hiBigAvatarWrap{
+  position:relative;
+  width:76px;
+  height:76px;
+  flex-shrink:0;
 }
 
-.adSideTop {
-  flex: 1;
-  overflow-y: auto;       
-  padding: 18px 16px 10px;
+.hiBigAvatar{
+  width:76px;
+  height:76px;
+  border-radius:999px;
+  border:1px solid rgba(0,0,0,0.12);
+  background: rgba(21,60,42,0.06);
+  display:grid;
+  place-items:center;
+  overflow:hidden;
 }
 
-.adSideBottom {
-  flex-shrink: 0;
-  padding: 14px 16px;
-  border-top: 1px solid rgba(0,0,0,0.10);
-  background: #ffffff;
+.hiBigAvatar img{
+  width:100%;
+  height:100%;
+  object-fit:cover;
 }
 
-.adMain {
-  height: 100vh;          
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;     
+.hiBigAvatarTxt{
+  font-size:22px;
+  font-weight:900;
+  color: var(--g);
 }
 
-.adContent {
-  flex: 1;
-  overflow-y: auto;       
-  padding: 18px;
+.hiAvatarEdit{
+  position:absolute;
+  bottom:-6px;
+  right:-6px;
+  width:34px;
+  height:34px;
+  border-radius:999px;
+  border:1px solid rgba(21,60,42,0.20);
+  background: rgba(21,60,42,0.10);
+  display:grid;
+  place-items:center;
+  color: var(--g);
+  cursor:pointer;
+}
+.hiAvatarEdit input{ display:none; }
+.hiAvatarEdit:hover{
+  background: rgba(21,60,42,0.14);
 }
 
-@media (max-width: 980px) {
-  .hiWrap {
-    grid-template-columns: 220px 1fr;
+.hiProfilePhotoText{
+  display:flex;
+  flex-direction:column;
+  gap:4px;
+}
+
+.hiProfilePhotoTitle{
+  font-weight:900;
+  color: rgba(0,0,0,0.80);
+}
+
+.hiProfilePhotoSub{
+  font-size:12px;
+  font-weight:800;
+  color: rgba(0,0,0,0.55);
+}
+
+.hiUploadLink{
+  margin-top:6px;
+  font-weight:900;
+  color: var(--g);
+  cursor:pointer;
+  width:max-content;
+}
+.hiUploadLink input{ display:none; }
+.hiUploadLink:hover{
+  text-decoration: underline;
+}
+
+.hiProfileGrid{
+  margin-top:14px;
+  display:grid;
+  grid-template-columns: 1fr 1fr;
+  gap:14px;
+}
+
+.hiBox{
+  background:#fff;
+  border:1px solid rgba(0,0,0,0.07);
+  border-radius:18px;
+  padding:16px;
+  box-shadow:0 12px 26px rgba(0,0,0,0.05);
+  position:relative;
+}
+
+.hiBoxHead{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:12px;
+  margin-bottom:12px;
+}
+
+.hiBoxTitle{
+  font-size:12px;
+  font-weight:900;
+  color: rgba(0,0,0,0.62);
+  letter-spacing:0.4px;
+  text-transform:uppercase;
+}
+
+.hiIconBtn{
+  width:40px;
+  height:40px;
+  border-radius:14px;
+  border:1px solid rgba(0,0,0,0.10);
+  background:#fff;
+  cursor:pointer;
+  display:grid;
+  place-items:center;
+  color: rgba(0,0,0,0.65);
+}
+.hiIconBtn:hover{
+  background: rgba(21,60,42,0.06);
+  border-color: rgba(21,60,42,0.18);
+  color: var(--g);
+}
+.hiIconBtn:disabled{
+  opacity:0.55;
+  cursor:not-allowed;
+}
+
+.hiTwoColValues{
+  display:grid;
+  grid-template-columns: 1fr 1fr;
+  gap:12px;
+}
+
+.hiSmallLabel{
+  font-size:11px;
+  font-weight:900;
+  color: rgba(0,0,0,0.45);
+  letter-spacing:0.3px;
+  text-transform:uppercase;
+}
+
+.hiValueText{
+  margin-top:6px;
+  font-weight:900;
+  color: rgba(0,0,0,0.78);
+}
+.hiValueText.muted{
+  color: rgba(0,0,0,0.45);
+  font-style: italic;
+}
+
+.hiBadgeRow{
+  margin-top:10px;
+}
+.hiBadge{
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  padding:6px 10px;
+  border-radius:999px;
+  border:1px solid rgba(21,60,42,0.20);
+  background: rgba(21,60,42,0.08);
+  color: var(--g);
+  font-weight:900;
+  font-size:11px;
+}
+
+.hiFieldRow{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:12px;
+}
+
+.hiFieldBlock{
+  display:flex;
+  flex-direction:column;
+  gap:6px;
+}
+
+.hiFieldLabel{
+  font-size:11px;
+  font-weight:900;
+  color: rgba(0,0,0,0.45);
+  letter-spacing:0.3px;
+  text-transform:uppercase;
+}
+
+.hiInput{
+  width:100%;
+  padding:10px 12px;
+  border-radius:12px;
+  border:1px solid rgba(0,0,0,0.12);
+  outline:none;
+  background: rgba(255,255,255,0.98);
+  font-size:13px;
+  font-weight:700;
+  color: rgba(0,0,0,0.75);
+}
+
+.hiInput:disabled{
+  opacity:0.7;
+  background: rgba(245,245,245,0.75);
+}
+
+.hiTextarea{
+  min-height:90px;
+  resize:vertical;
+}
+
+.hiMiniGhost{
+  margin-top:10px;
+  padding:10px 12px;
+  border-radius:12px;
+  border:1px solid rgba(0,0,0,0.12);
+  background:#fff;
+  cursor:pointer;
+  font-weight:900;
+  color: rgba(0,0,0,0.70);
+}
+.hiMiniGhost:hover{
+  background: rgba(0,0,0,0.03);
+}
+
+.hiPassRow{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+}
+
+.hiModalOverlay{
+  position:fixed;
+  inset:0;
+  background: rgba(0,0,0,0.35);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding:18px;
+  z-index:9999;
+}
+
+.hiModalCard{
+  width:100%;
+  max-width:720px;
+  background: rgba(255,255,255,0.95);
+  border:1px solid rgba(0,0,0,0.12);
+  border-radius:18px;
+  box-shadow:0 22px 60px rgba(0,0,0,0.18);
+  padding:18px;
+  position:relative;
+  backdrop-filter: blur(14px);
+
+  max-height: calc(100vh - 60px);
+  overflow-y: auto;
+}
+
+.hiModalClose{
+  position:absolute;
+  top:12px;
+  right:12px;
+  width:38px;
+  height:38px;
+  border-radius:999px;
+  border:1px solid rgba(0,0,0,0.12);
+  background: rgba(255,255,255,0.92);
+  cursor:pointer;
+  display:grid;
+  place-items:center;
+  font-size:16px;
+  font-weight:900;
+  color: var(--g);
+}
+.hiModalClose:hover{
+  background:#fff;
+  box-shadow:0 10px 22px rgba(0,0,0,0.10);
+}
+
+.hiModalHead{
+  padding:10px 6px 14px;
+}
+
+.hiModalTitle{
+  font-size:20px;
+  font-weight:900;
+  color: rgba(0,0,0,0.86);
+}
+
+.hiModalSub{
+  margin-top:4px;
+  font-size:13px;
+  font-weight:800;
+  color: rgba(0,0,0,0.55);
+}
+
+.hiModalActions{
+  display:flex;
+  justify-content:flex-end;
+  gap:10px;
+  margin-top:14px;
+  padding:6px;
+}
+
+.hiFormCol{
+  display:flex;
+  flex-direction:column;
+  gap:6px;
+}
+
+.hiLabel{
+  font-size:12px;
+  font-weight:900;
+  color: rgba(0,0,0,0.55);
+  letter-spacing:.35px;
+  text-transform:uppercase;
+}
+
+.hiInlineError{
+  margin-top:10px;
+  background: rgba(198,40,40,0.08);
+  border: 1px solid rgba(198,40,40,0.2);
+  color: #c62828;
+  padding: 10px;
+  border-radius: 12px;
+  font-weight: 900;
+}
+
+.hiDividerTitle{
+  margin-top:16px;
+  font-weight:900;
+  color: var(--g);
+  letter-spacing:.4px;
+}
+
+.hiPanel{
+  margin-top:12px;
+  border:1px solid rgba(0,0,0,0.10);
+  border-radius:16px;
+  padding:12px;
+  background: rgba(21,60,42,0.05);
+}
+
+.hiPanelTop{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  margin-bottom:8px;
+}
+
+.hiPanelTitle{
+  font-weight:900;
+  opacity:0.85;
+}
+
+.hiDashedBtn{
+  margin-top:10px;
+  height:38px;
+  padding:0 14px;
+  border-radius:12px;
+  border:1px dashed rgba(0,0,0,0.25);
+  background: transparent;
+  font-weight:900;
+  cursor:pointer;
+}
+.hiDashedBtn:hover{
+  background: rgba(0,0,0,0.03);
+}
+
+.hiOtpHint{
+  margin-top:10px;
+  font-size:12px;
+  font-weight:900;
+  color: rgba(0,0,0,0.65);
+}
+
+.hiArchiveGrid{
+  display:grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap:12px;
+  margin-top:10px;
+}
+
+.hiMenuItem{
+  width:100%;
+  border:none;
+  background:transparent;
+  display:flex;
+  gap:10px;
+  align-items:center;
+  padding:10px 12px;
+  font-weight:900;
+  cursor:pointer;
+  text-align:left;
+}
+.hiMenuItem:hover{ background: rgba(0,0,0,0.06); }
+.hiMenuItem.danger{ color: #b00020; }
+
+
+@media (max-width: 980px){
+  .hiProfileGrid{
+    grid-template-columns:1fr;
   }
+  .hiTwoColValues{
+    grid-template-columns:1fr;
+  }
+}
 
-  .hiProfileGrid {
-    grid-template-columns: 1fr;
+@media (max-width: 760px){
+  .hiTopbar{
+    padding:0 12px;
   }
 }

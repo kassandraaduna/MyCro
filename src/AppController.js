@@ -18,21 +18,21 @@ const AppRoutes = () => {
     <>
       <Routes location={backgroundLocation || location}>
         <Route path="/" element={<SplashScreen />} />
-        <Route path="/Landing" element={<LandingPage />} />
+        <Route path="/landing" element={<LandingPage />} />
 
-        <Route path="/Login" element={<Login />} />
-        <Route path="/Register" element={<Register />} />
+        <Route path="/login" element={<Login />} />
+        <Route path="/register" element={<Register />} />
 
-        <Route path="/Homepage" element={<HomeStudent />} />
-        <Route path="/AdminPanel" element={<Admin />} />
-        <Route path="/HomeInstructor" element={<HomeInstructor />} />
-        <Route path="/ChangePass" element={<ChangePassword />} />
+        <Route path="/homestudent" element={<HomeStudent />} />
+        <Route path="/adminpanel" element={<Admin />} />
+        <Route path="/homeinstructor" element={<HomeInstructor />} />
+        <Route path="/changepass" element={<ChangePassword />} />
       </Routes>
 
       {backgroundLocation && (
         <Routes>
-          <Route path="/Login" element={<Login />} />
-          <Route path="/Register" element={<Register />} />
+          <Route path="/login" element={<Login />} />
+          <Route path="/register" element={<Register />} />
         </Routes>
       )}
     </>

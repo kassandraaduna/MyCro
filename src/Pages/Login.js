@@ -49,11 +49,11 @@ function Login({ isModal = false, onClose, onSwitchToRegister }) {
 
   const routeAfterLogin = (user) => {
     if (isModal && onClose) onClose();
-    if (!user) return navigate('/Homepage');
+    if (!user) return navigate('/homestudent');
 
-    if (user.mustChangePassword) return navigate('/ChangePass', { state: { user } });
-    if ((user.role || '').toLowerCase() === 'instructor') return navigate('/HomeInstructor', { state: { instructor: user } });
-    navigate('/Homepage', { state: { employee: user } });
+    if (user.mustChangePassword) return navigate('/changepass', { state: { user } });
+    if ((user.role || '').toLowerCase() === 'instructor') return navigate('/homeinstructor', { state: { instructor: user } });
+    navigate('/homestudent', { state: { employee: user } });
   };
 
   const handleLogin = async () => {
@@ -64,7 +64,7 @@ function Login({ isModal = false, onClose, onSwitchToRegister }) {
     if (!pass) errs.password = 'Password is required.';
     if (Object.keys(errs).length > 0) return setErrors(errs);
 
-    if (input === 'admin' && pass === 'admin') return navigate('/Adminpanel');
+    if (input === 'admin' && pass === 'admin') return navigate('/adminpanel');
 
     try {
       setIsLoading(true);
@@ -240,6 +240,8 @@ function Login({ isModal = false, onClose, onSwitchToRegister }) {
     if (!pass || !confirm) newErrors.password = 'Please enter and confirm your new password.';
     else if (pass.length < 8) newErrors.password = 'New password must be at least 8 characters.';
     else if (!/[!@#$%^&*]/.test(pass)) newErrors.password = 'Must include a special character.';
+    else if (!/[A-Z]/.test(pass)) newErrors.password = 'Must include an uppercase letter.';
+    else if (!/\d/.test(pass)) newErrors.password = 'Must include a number.';
     else if (pass !== confirm) newErrors.password = 'Passwords do not match.';
 
     setErrors((prev) => ({ ...prev, password: newErrors.password || '' }));
@@ -252,7 +254,7 @@ function Login({ isModal = false, onClose, onSwitchToRegister }) {
 
     try {
       setIsLoading(true);
-      const res = await axios.post('http://localhost:8000/api/auth/reset-password-with-otp', {
+      const res = await axios.post('http://localhost:8000/api/auth/verify-password-reset-otp', {
         otpId: otpMeta.otpId,
         code: verifiedOtp,
         newPassword,
@@ -289,7 +291,7 @@ function Login({ isModal = false, onClose, onSwitchToRegister }) {
 
   const handleRegister = () => {
     if (isModal && onSwitchToRegister) return onSwitchToRegister();
-    navigate('/Register');
+    navigate('/register');
   };
 
   const handleKeyDown = (e) => {

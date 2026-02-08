@@ -22,7 +22,9 @@ const AssessmentSchema = new mongoose.Schema(
     },
     questions: { type: [QuestionSchema], default: [] },
     feedbackRanges: { type: [FeedbackRangeSchema], default: [] },
-    createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
+    createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'accounts', default: null },
+    isArchived: { type: Boolean, default: false },
+    archivedAt: { type: Date, default: null },
   },
   { timestamps: true }
 );

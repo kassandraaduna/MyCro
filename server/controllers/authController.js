@@ -713,7 +713,7 @@ const verifyEmailOtpAndRegister = async (req, res) => {
       username: String(username).trim(),
       email: cleanEmail,
       password: hashedPassword,
-      role: 'user',
+      role: 'student',
       active: true,
       mfaLastVerifiedAt: null,
       mustChangePassword: false,
@@ -742,7 +742,6 @@ const verifyEmailOtpAndRegister = async (req, res) => {
   }
 };
 
-// ---------------- RESET PASSWORD OTP ----------------
 const requestPasswordResetOtp = async (req, res) => {
   try {
     const { email } = req.body;
@@ -869,7 +868,7 @@ const resendPasswordResetOtp = async (req, res) => {
 
 const verifyPasswordResetOtp = async (req, res) => {
   try {
-    const { otpId, code } = req.body;
+    const { otpId, code, newPassword } = req.body; // ✅ include newPassword
 
     if (!otpId || !code) {
       return res.status(400).json({ message: 'otpId and code are required' });
@@ -883,15 +882,20 @@ const verifyPasswordResetOtp = async (req, res) => {
 
     if (!otpDoc) return res.status(400).json({ message: 'OTP expired or invalid.' });
     if (otpDoc.expiresAt < new Date()) return res.status(400).json({ message: 'OTP expired.' });
-    if (otpDoc.attempts >= otpDoc.maxAttempts) return res.status(429).json({ message: 'Too many attempts. Please resend code.' });
+    if (otpDoc.attempts >= otpDoc.maxAttempts) {
+      return res.status(429).json({ message: 'Too many attempts. Please resend code.' });
+    }
 
     const isValid = await bcrypt.compare(String(code).trim(), otpDoc.codeHash);
     if (!isValid) {
       otpDoc.attempts += 1;
       await otpDoc.save();
-      return res.status(400).json({ message: `Invalid code. Attempts left: ${otpDoc.maxAttempts - otpDoc.attempts}` });
+      return res.status(400).json({
+        message: `Invalid code. Attempts left: ${otpDoc.maxAttempts - otpDoc.attempts}`
+      });
     }
 
+    // ✅ If verification only (no new password yet)
     if (!newPassword) {
       return res.json({ message: 'OTP verified' });
     }
@@ -899,15 +903,11 @@ const verifyPasswordResetOtp = async (req, res) => {
     const passErr = validatePasswordRules(newPassword);
     if (passErr) return res.status(400).json({ message: passErr });
 
-    if (newPassword.length < 8) return res.status(400).json({ message: 'New password must be at least 8 characters long' });
-    if (!/[!@#$%^&*]/.test(newPassword)) return res.status(400).json({ message: 'New password must contain at least one special character' });
-
     otpDoc.used = true;
     await otpDoc.save();
 
     const user = await UserModel.findOne({ email: otpDoc.email });
     if (!user) return res.status(404).json({ message: 'User not found.' });
-
     if (user.active === false) {
       return res.status(403).json({ message: 'Account is deactivated. Please contact admin.' });
     }
@@ -928,9 +928,8 @@ const verifyPasswordResetOtp = async (req, res) => {
     });
 
     return res.json({ message: 'Password reset successful' });
-
   } catch (err) {
-    console.error('resetPasswordWithOtp error:', err);
+    console.error('verifyPasswordResetOtp error:', err);
     return res.status(500).json({ message: 'Password reset failed' });
   }
 };

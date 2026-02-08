@@ -12,7 +12,8 @@
     "@faker-js/faker": "^9.0.3",
     "cors": "^2.8.5",
     "express": "^4.21.1",
-    "mongoose": "^8.7.1"
+    "mongoose": "^8.7.1",
+    "multer": "^2.0.2"
   },
   "keywords": [],
   "description": ""

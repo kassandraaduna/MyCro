@@ -12,13 +12,12 @@ const UserSchema = new mongoose.Schema(
       trim: true
     },
     number: { type: String, required: true, trim: true },
-    address: { type: String, default: '', trim: true },
     username: { type: String, required: true, unique: true, trim: true },
     password: { type: String, required: true },
     email: { type: String, required: true, unique: true, trim: true, lowercase: true },
 
     active: { type: Boolean, default: true },
-    role: { type: String, default: 'student' },
+    role: { type: String, default: 'student', trim: true, lowercase: true },
 
     mustChangePassword: { type: Boolean, default: false },
     mfaLastVerifiedAt: { type: Date, default: null },

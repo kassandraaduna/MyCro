@@ -8,6 +8,7 @@ const userRoutes = require('./routes/userRoutes');
 const authRoutes = require('./routes/authRoutes');
 const adminRoutes = require('./routes/adminRoutes');
 const assessmentRoutes = require('./routes/assessmentRoutes'); 
+const lessonRoutes = require('./routes/lessonRoutes');
 
 const app = express();
 
@@ -22,6 +23,8 @@ app.use('/api', userRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api', assessmentRoutes); 
+app.use('/api', lessonRoutes);
+app.use('/uploads', express.static('uploads'));
 
 const PORT = process.env.PORT || 8000;
 app.listen(PORT, () => {

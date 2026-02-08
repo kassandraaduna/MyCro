@@ -125,9 +125,6 @@ const updateMed = async (req, res) => {
     if (updates.username) updates.username = String(updates.username).trim();
     if (updates.gender) updates.gender = String(updates.gender).trim();
     if (updates.number) updates.number = String(updates.number).trim();
-     if (updates.address !== undefined) {
-      updates.address = String(updates.address).trim();
-    }
 
     const updated = await UserModel.findByIdAndUpdate(id, updates, {
       new: true,

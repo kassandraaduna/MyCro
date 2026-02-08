@@ -1,357 +1,625 @@
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
+*{
+  margin:0;
+  padding:0;
+  box-sizing:border-box;
   font-family: Arial, Helvetica, sans-serif;
 }
 
-.adWrap {
-  width: 100%;
-  min-height: 100vh;
-  display: flex;
-  background: #f7f7fb;
+:root{
+  --g: #153c2a;
+  --g2:#0f2d1f;
+  --mint: rgba(21,60,42,0.08);
+  --border: rgba(0,0,0,0.08);
+  --text: rgba(0,0,0,0.78);
+  --muted: rgba(0,0,0,0.55);
+  --bg: #f4f7f5;
 }
 
-.adSide {
-  width: 260px;
-  min-height: 100vh;
-  background: #ffffff;
-  border-right: 1px solid rgba(0, 0, 0, 0.06);
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
+.adWrap{
+  width:100%;
+  height:100vh;
+  overflow:hidden;
+  display:grid;
+  grid-template-columns: 260px 1fr;
+  background: var(--bg);
 }
 
-.adSideTop {
-  padding: 18px 16px;
+.adWrap.collapsed{
+  grid-template-columns: 78px 1fr;
 }
 
-.adLogo {
-  font-size: 22px;
-  font-weight: 900;
-  color: #2f6a46;
-  margin-bottom: 10px;
+.adSide{
+  height:100vh;
+  position: sticky;
+  top:0;
+  border-right: 1px solid var(--border);
+  background:#fff;
+  display:flex;
+  flex-direction:column;
+  overflow:hidden;
 }
 
-.adSectionTitle {
-  font-size: 11px;
-  font-weight: 900;
-  color: rgba(0, 0, 0, 0.45);
-  letter-spacing: 0.7px;
-  margin: 14px 0 10px;
+.adSideTop{
+  flex:1;
+  overflow-y:auto;
+  padding: 18px 16px 10px;
 }
 
-.adNav {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
+.adLogoRow{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
 }
 
-.adNavBtn {
-  width: 100%;
+.adLogo{
+  font-size:22px;
+  font-weight:900;
+  color: var(--g);
+  letter-spacing: 0.2px;
+  white-space:nowrap;
+}
+
+.adCollapseBtn{
+  width:36px;
+  height:36px;
+  border-radius:12px;
+  border:1px solid rgba(0,0,0,0.10);
+  background: rgba(255,255,255,0.95);
+  cursor:pointer;
+  font-weight:900;
+  color: var(--g);
+  display:grid;
+  place-items:center;
+  transition: box-shadow .15s ease, background .15s ease;
+}
+.adCollapseBtn:hover{
+  background:#fff;
+  box-shadow: 0 10px 22px rgba(0,0,0,0.08);
+}
+
+.adSectionTitle{
+  font-size:11px;
+  font-weight:900;
+  color: rgba(0,0,0,0.45);
+  letter-spacing: 0.8px;
+  margin: 14px 0 12px;
+}
+
+.adNav{
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+}
+
+.adNavBtn{
+  width:100%;
   border: 1px solid transparent;
   background: transparent;
   padding: 12px 12px;
-  border-radius: 10px;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  cursor: pointer;
-  font-weight: 800;
-  font-size: 13px;
-  color: rgba(0, 0, 0, 0.75);
-  text-align: left;
-  transition: background 0.15s ease, border 0.15s ease;
+  border-radius: 14px;
+  display:flex;
+  align-items:center;
+  gap:12px;
+  cursor:pointer;
+  font-weight:900;
+  font-size:13px;
+  color: rgba(0,0,0,0.74);
+  text-align:left;
+  transition: background .15s ease, border .15s ease;
 }
 
-.adDot {
-  width: 8px;
-  height: 8px;
-  border-radius: 999px;
-  border: 2px solid rgba(0, 0, 0, 0.25);
-  flex-shrink: 0;
-}
-
-.adNavBtn:hover {
-  background: rgba(255, 105, 180, 0.06);
-  border-color: rgba(255, 105, 180, 0.14);
-}
-
-.adNavBtn.active {
-  background: rgba(255, 105, 180, 0.12);
-  border-color: rgba(255, 105, 180, 0.22);
-}
-
-.adNavBtn.active .adDot {
-  border-color: rgba(255, 105, 180, 0.7);
-}
-
-.adSideBottom {
-  padding: 14px 16px 18px;
-}
-
-.adLogout {
-  width: 100%;
-  padding: 12px 14px;
+.adNavIcon{
+  width:34px;
+  height:34px;
   border-radius: 12px;
-  border: 1px solid rgba(255, 105, 180, 0.22);
-  background: rgba(255, 105, 180, 0.08);
-  cursor: pointer;
+  display:grid;
+  place-items:center;
+  background: rgba(21,60,42,0.06);
+  color: var(--g);
+  flex-shrink:0;
+}
+
+.adNavText{
+  white-space: nowrap;
+}
+
+.adNavBtn:hover{
+  background: rgba(21,60,42,0.06);
+  border-color: rgba(21,60,42,0.14);
+}
+
+.adNavBtn.active{
+  background: rgba(21,60,42,0.10);
+  border-color: rgba(21,60,42,0.22);
+}
+.adNavBtn.active .adNavIcon{
+  background: rgba(21,60,42,0.14);
+}
+
+.adSideBottom{
+  flex-shrink:0;
+  padding: 14px 16px;
+  border-top: 1px solid rgba(0,0,0,0.10);
+  background:#fff;
+}
+
+.adLogout{
+  width:100%;
+  padding: 10px 12px;
+  border-radius: 14px;
+  border: 1px solid rgba(21,60,42,0.20);
+  background: rgba(21,60,42,0.08);
+  cursor:pointer;
   font-weight: 900;
-  letter-spacing: 0.5px;
+  letter-spacing: .5px;
+  display:flex;
+  align-items:center;
+  gap:12px;
+  color: var(--g);
+}
+.adLogout:hover{
+  background: rgba(21,60,42,0.12);
 }
 
-.adLogout:hover {
-  background: rgba(255, 105, 180, 0.12);
+.adWrap.collapsed .adLogo{
+  display:none;
+}
+.adWrap.collapsed .adSectionTitle{
+  display:none;
+}
+.adWrap.collapsed .adNavText{
+  display:none;
+}
+.adWrap.collapsed .adSideTop{
+  padding: 18px 12px 10px;
+}
+.adWrap.collapsed .adSideBottom{
+  padding: 14px 12px;
+}
+.adWrap.collapsed .adNavBtn{
+  justify-content:center;
+  padding: 10px;
+}
+.adWrap.collapsed .adLogout{
+  justify-content:center;
 }
 
-.adMain {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
+.adMain{
+  height:100vh;
+  min-width:0;
+  display:flex;
+  flex-direction:column;
+  overflow:hidden;
 }
 
-.adTopbar {
-  height: 64px;
-  background: #f3d8e3;
-  display: flex;
-  align-items: center;
+.adTopbar{
+  height:64px;
+  background:#fff;
+  display:flex;
+  align-items:center;
+  justify-content: space-between;
   padding: 0 18px;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+  border-bottom: 1px solid var(--border);
 }
 
-.adSearch {
-  width: 480px;
-  max-width: 90%;
-  background: rgba(255, 255, 255, 0.85);
-  border: 1px solid rgba(0, 0, 0, 0.08);
+.adTopRight{
+  display:flex;
+  align-items:center;
+  gap: 12px;
+}
+
+.adAvatar{
+  width:40px;
+  height:40px;
   border-radius: 999px;
-  display: flex;
-  align-items: center;
-  padding: 8px 10px;
-  gap: 10px;
+  background: rgba(21,60,42,0.12);
+  color: var(--g);
+  font-weight: 900;
+  display:grid;
+  place-items:center;
+  border: 1px solid rgba(21,60,42,0.18);
 }
 
-.adSearch input {
-  border: none;
-  outline: none;
-  background: transparent;
-  width: 100%;
-  font-size: 13px;
-}
-
-.adSearch button {
-  border: none;
-  background: transparent;
-  cursor: pointer;
-  font-size: 16px;
-  padding: 2px 6px;
-}
-
-.adContent {
+.adContent{
+  flex:1;
+  overflow-y:auto;
   padding: 18px;
 }
 
-.adminCard {
-  background: #fff;
-  border: 1px solid rgba(0, 0, 0, 0.07);
-  border-radius: 14px;
+.adminCard,
+.adminTop{
+  background:#fff;
+  border: 1px solid rgba(0,0,0,0.07);
+  border-radius: 18px;
   padding: 16px;
+  box-shadow: 0 12px 26px rgba(0,0,0,0.05);
 }
 
-.adminCardHead {
-  display: flex;
-  flex-direction: column;
+.adminCardHead{
+  display:flex;
+  flex-direction:column;
+  gap:6px;
+}
+
+.adminTitle{
+  font-size: 28px;
+  font-weight: 900;
+  color: rgba(0,0,0,0.86);
+  letter-spacing: 0.2px;
+}
+
+.adminSub{
+  font-size: 13px;
+  font-weight: 800;
+  color: rgba(0,0,0,0.52);
+  line-height: 1.35;
+}
+
+.adminTop{
+  display:flex;
+  align-items:flex-end;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.adminTopLeft{
+  display:flex;
+  flex-direction:column;
   gap: 6px;
 }
 
-.adminTitle {
-  font-size: 18px;
-  font-weight: 900;
-  color: rgba(0, 0, 0, 0.8);
+.adminTopRight{
+  display:flex;
+  align-items:center;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content:flex-end;
 }
 
-.adminSub {
+.adInnerSearch{
+  width: 320px;
+  max-width: 100%;
+  background: rgba(255,255,255,0.95);
+  border: 1px solid rgba(0,0,0,0.10);
+  border-radius: 14px;
+  display:flex;
+  align-items:center;
+  padding: 10px 12px;
+  gap: 10px;
+  box-shadow: 0 12px 26px rgba(0,0,0,0.05);
+}
+.adInnerSearchIcon{
+  color: rgba(0,0,0,0.40);
+  font-weight: 900;
+}
+.adInnerSearch input{
+  border:none;
+  outline:none;
+  background: transparent;
+  width:100%;
   font-size: 13px;
   font-weight: 700;
-  color: rgba(0, 0, 0, 0.5);
+  color: rgba(0,0,0,0.75);
 }
 
-.adminTop {
-  background: #fff;
-  border: 1px solid rgba(0, 0, 0, 0.07);
+.adPrimaryBtn{
+  padding: 12px 16px;
   border-radius: 14px;
-  padding: 16px;
+  border: 1px solid rgba(21,60,42,0.22);
+  background: var(--g);
+  color: #fff;
+  font-weight: 900;
+  cursor:pointer;
+  box-shadow: 0 14px 26px rgba(21,60,42,0.18);
+}
+.adPrimaryBtn:hover{
+  background: var(--g2);
 }
 
-.adminMiniBtn {
-  border: 1px solid rgba(0, 0, 0, 0.12);
-  background: rgba(255, 255, 255, 0.8);
-  padding: 8px 10px;
-  border-radius: 10px;
-  cursor: pointer;
-  font-weight: 800;
+.adGhostBtn{
+  padding: 12px 16px;
+  border-radius: 14px;
+  border: 1px solid rgba(0,0,0,0.14);
+  background: #fff;
+  color: rgba(0,0,0,0.78);
+  font-weight: 900;
+  cursor:pointer;
+}
+.adGhostBtn:hover{
+  background: rgba(0,0,0,0.03);
+}
+
+.adStatus{
+  padding: 5px 10px;
+  border-radius: 999px;
+  font-weight: 900;
   font-size: 12px;
+  display:inline-flex;
+  align-items:center;
+  gap: 6px;
+  border: 1px solid rgba(0,0,0,0.08);
+}
+.adStatus.on{
+  background: rgba(0,200,100,0.10);
+  border-color: rgba(0,200,100,0.22);
+  color: rgba(0,120,70,0.95);
+}
+.adStatus.off{
+  background: rgba(255,0,80,0.08);
+  border-color: rgba(255,0,80,0.18);
+  color: rgba(170,0,60,0.92);
 }
 
-.adminMiniBtn:hover {
-  background: rgba(255, 105, 180, 0.08);
-  border-color: rgba(255, 105, 180, 0.22);
+.adTableWrap{
+  overflow-x:auto;
+  margin-top: 14px;
+  background:#fff;
+  border: 1px solid rgba(0,0,0,0.07);
+  border-radius: 18px;
+  box-shadow: 0 12px 26px rgba(0,0,0,0.05);
+}
+.adTable{
+  width: 100%;
+  border-collapse: collapse;
+}
+.adTable thead{
+  background: rgba(21,60,42,0.03);
 }
 
-.adminMiniBtn.danger {
-  background: rgba(255, 0, 80, 0.08);
-  border-color: rgba(255, 0, 80, 0.18);
+.adActionRow{
+  display:flex;
+  justify-content:flex-end;
+  gap: 8px;
 }
 
-.adminMiniBtn.danger:hover {
-  background: rgba(255, 0, 80, 0.12);
+.adIconBtn{
+  width: 40px;
+  height: 40px;
+  border-radius: 14px;
+  border: 1px solid rgba(0,0,0,0.10);
+  background: #fff;
+  cursor:pointer;
+  display:grid;
+  place-items:center;
+  color: rgba(0,0,0,0.65);
+}
+.adIconBtn:hover{
+  background: rgba(21,60,42,0.06);
+  border-color: rgba(21,60,42,0.18);
+  color: var(--g);
+}
+.adIconBtn.danger:hover{
+  background: rgba(255,0,80,0.08);
+  border-color: rgba(255,0,80,0.18);
+  color: rgba(170,0,60,0.92);
 }
 
-.auditTop {
+.adPager{
+  margin-top: 10px;
+  display:flex;
+  align-items:center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: 16px;
+  border: 1px solid rgba(0,0,0,0.07);
+  background:#fff;
+  box-shadow: 0 12px 26px rgba(0,0,0,0.05);
+}
+.adPagerText{
+  font-size: 13px;
+  font-weight: 800;
+  color: rgba(0,0,0,0.62);
+}
+.adPagerBtns{
+  display:flex;
+  gap: 8px;
+}
+.adPagerBtn{
+  width: 40px;
+  height: 40px;
+  border-radius: 14px;
+  border: 1px solid rgba(0,0,0,0.12);
+  background:#fff;
+  cursor:pointer;
+  display:grid;
+  place-items:center;
+  color: rgba(0,0,0,0.62);
+}
+.adPagerBtn:hover{
+  background: rgba(21,60,42,0.06);
+  border-color: rgba(21,60,42,0.18);
+  color: var(--g);
+}
+.adPagerBtn:disabled{
+  opacity: 0.45;
+  cursor:not-allowed;
+}
+
+.adModalOverlay{
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.35);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding: 18px;
+  z-index: 9999;
+}
+
+.adModalCard{
+  width: 100%;
+  max-width: 840px;
+  background: rgba(255,255,255,0.95);
+  border: 1px solid rgba(0,0,0,0.12);
+  border-radius: 18px;
+  box-shadow: 0 22px 60px rgba(0,0,0,0.18);
+  padding: 18px;
+  position: relative;
+  backdrop-filter: blur(14px);
+}
+
+.adModalClose{
+  position:absolute;
+  top: 12px;
+  right: 12px;
+  width: 38px;
+  height: 38px;
+  border-radius: 999px;
+  border: 1px solid rgba(0,0,0,0.12);
+  background: rgba(255,255,255,0.92);
+  cursor:pointer;
+  display:grid;
+  place-items:center;
+  font-size: 16px;
+  font-weight: 900;
+  color: var(--g);
+}
+.adModalClose:hover{
+  background:#fff;
+  box-shadow: 0 10px 22px rgba(0,0,0,0.10);
+}
+
+.adModalHead{
+  padding: 10px 6px 14px;
+}
+.adModalTitle{
+  font-size: 20px;
+  font-weight: 900;
+  color: rgba(0,0,0,0.86);
+}
+.adModalSub{
+  margin-top: 4px;
+  font-size: 13px;
+  font-weight: 800;
+  color: rgba(0,0,0,0.55);
+}
+
+.adFormGrid{
+  display:grid;
+  grid-template-columns: repeat(2, minmax(0,1fr));
+  gap: 12px;
+  padding: 6px;
+}
+
+.adViewGrid{
+  display:grid;
+  grid-template-columns: repeat(2, minmax(0,1fr));
+  gap: 12px;
+  padding: 6px;
+}
+
+.adField label{
+  display:block;
+  font-size: 12px;
+  font-weight: 900;
+  color: rgba(0,0,0,0.55);
+  margin: 0 0 6px 2px;
+  letter-spacing: .3px;
+  text-transform: uppercase;
+}
+
+.adModalActions{
+  display:flex;
+  justify-content:flex-end;
+  gap: 10px;
+  margin-top: 14px;
+  padding: 6px;
+}
+
+.auditTop{
   margin-bottom: 10px;
 }
 
-.auditFilters {
+.auditTopRow{
+  display:flex;
+  align-items:flex-end;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.auditFilters{
   margin-top: 12px;
   background: #fff;
-  border: 1px solid rgba(0, 0, 0, 0.07);
-  border-radius: 14px;
+  border: 1px solid rgba(0,0,0,0.07);
+  border-radius: 18px;
   padding: 14px;
   display: grid;
   grid-template-columns: 1.2fr 1fr 1fr auto;
   gap: 12px;
   align-items: end;
+  box-shadow: 0 12px 26px rgba(0,0,0,0.05);
 }
 
-.auditField label {
-  display: block;
+.auditField label{
+  display:block;
   font-size: 12px;
   font-weight: 900;
   margin-bottom: 6px;
-  color: rgba(0, 0, 0, 0.7);
+  color: rgba(0,0,0,0.55);
+  text-transform: uppercase;
+  letter-spacing: .35px;
 }
 
 .auditField input,
-.auditField select {
+.auditField select{
   width: 100%;
   padding: 10px 12px;
-  border-radius: 10px;
-  border: 1px solid rgba(0, 0, 0, 0.12);
-  outline: none;
-  background: #fff;
+  border-radius: 12px;
+  border: 1px solid rgba(0,0,0,0.12);
+  outline:none;
+  background:#fff;
   font-size: 13px;
+  font-weight: 700;
 }
 
-.auditClearBtn {
+.auditClearBtn{
   padding: 10px 12px;
-  border-radius: 10px;
-  border: 1px solid rgba(255, 105, 180, 0.25);
-  background: rgba(255, 105, 180, 0.08);
-  cursor: pointer;
+  border-radius: 12px;
+  border: 1px solid rgba(21,60,42,0.22);
+  background: rgba(21,60,42,0.08);
+  cursor:pointer;
   font-weight: 900;
+  color: var(--g);
+}
+.auditClearBtn:hover{
+  background: rgba(21,60,42,0.12);
 }
 
-.auditClearBtn:hover {
-  background: rgba(255, 105, 180, 0.12);
-}
-
-.auditStats {
-  display: grid;
+.auditStats{
+  display:grid;
   grid-template-columns: 1fr 1fr;
   gap: 12px;
   margin-top: 12px;
 }
 
-.auditStatCard {
-  background: #fff;
-  border: 1px solid rgba(0, 0, 0, 0.07);
-  border-radius: 14px;
+.auditStatCard{
+  background:#fff;
+  border: 1px solid rgba(0,0,0,0.07);
+  border-radius: 18px;
   padding: 14px;
+  box-shadow: 0 12px 26px rgba(0,0,0,0.05);
 }
 
-.auditStatNum {
+.auditStatNum{
   font-size: 28px;
   font-weight: 900;
-  color: rgba(0, 0, 0, 0.8);
+  color: rgba(0,0,0,0.85);
 }
-
-.auditStatLabel {
+.auditStatLabel{
   margin-top: 4px;
   font-size: 13px;
   font-weight: 800;
-  color: rgba(0, 0, 0, 0.55);
+  color: rgba(0,0,0,0.55);
 }
 
-.adWrap {
-  width: 100%;
-  height: 100vh;          
-  overflow: hidden;       
-  display: grid;
-  grid-template-columns: 260px 1fr;
-  background: #ffffff;
+@media (max-width: 980px){
+  .auditFilters{ grid-template-columns: 1fr; }
+  .adFormGrid{ grid-template-columns: 1fr; }
+  .adViewGrid{ grid-template-columns: 1fr; }
 }
-
-.adSide {
-  height: 100vh;          
-  position: sticky;       
-  top: 0;
-  border-right: 1px solid rgba(0,0,0,0.12);
-  display: flex;
-  flex-direction: column;
-  background: #ffffff;
-  overflow: hidden;      
-
-.adSideTop {
-  flex: 1;
-  overflow-y: auto;       
-  padding: 18px 16px 10px;
-}
-
-.adSideBottom {
-  flex-shrink: 0;
-  padding: 14px 16px;
-  border-top: 1px solid rgba(0,0,0,0.10);
-  background: #ffffff;
-}
-
-.adMain {
-  height: 100vh;          
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;       
-}
-
-.adContent {
-  flex: 1;
-  overflow-y: auto;       
-  padding: 18px;
-}
-
-
-@media (max-width: 980px) {
-  .auditFilters {
-    grid-template-columns: 1fr;
-  }
-  .adSide {
-    width: 220px;
-  }
-}
-
-@media (max-width: 760px) {
-  .adWrap {
-    flex-direction: column;
-  }
-  .adSide {
-    width: 100%;
-    min-height: auto;
-  }
-  .adTopbar {
-    padding: 10px 14px;
-  }
-  .adContent {
-    padding: 14px;
-  }
-}
+@media (max-width: 760px){
+  .adInnerSearch{ width: 100%; }
 }

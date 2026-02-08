@@ -8,7 +8,7 @@
 .splashBody {
     width: 100%;
     height: 100vh;
-    background: linear-gradient(120deg, #fff6fb, #ffe3f1);
+    background: linear-gradient(120deg, #ffffff, #ffffff);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -16,7 +16,7 @@
 
 .splashContent {
     text-align: center;
-    color: #3f5f4a;
+    color: rgba(21, 60, 42, 0.55);
     animation: fadeIn 1.2s ease-in-out;
 }
 
